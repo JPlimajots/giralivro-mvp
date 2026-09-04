@@ -5,7 +5,7 @@ import { useFonts, Nunito_700Bold, Nunito_800ExtraBold } from '@expo-google-font
 import { Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 
-export default function WelcomeScreen() {
+export default function WelcomeScreen({ navigation }) {
     let [fontsLoaded] = useFonts({
         Nunito_700Bold,
         Nunito_800ExtraBold,
@@ -50,7 +50,7 @@ export default function WelcomeScreen() {
             </View>
 
             <View style={styles.footerContainer}>
-                <TouchableOpacity style={styles.primaryButton} activeOpacity={0.8} // onPress={() => navigation.navigate('ObjectiveScreen')}
+                <TouchableOpacity style={styles.primaryButton} activeOpacity={0.8} onPress={() => navigation.navigate('ObjectiveScreen')}
                 >
                     <Text style={styles.buttonText}>Começar configuração rápida</Text>
                     <Feather name="arrow-right" size={20} color="#FFFFFF" /> 
