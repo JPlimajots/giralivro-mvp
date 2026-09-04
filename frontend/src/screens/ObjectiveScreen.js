@@ -111,7 +111,7 @@ export default function ObjectiveScreen({ navigation }) {
         <TouchableOpacity 
           style={[styles.primaryButton, isButtonEnabled ? styles.buttonEnabled : styles.buttonDisabled]}
           disabled={!isButtonEnabled}
-          // onPress={() => navigation.navigate('GenresScreen')} // Será ativado na próxima tela
+          onPress={() => navigation.navigate('VisitorScreen')}
         >
           <Text style={[styles.buttonText, isButtonEnabled ? styles.buttonTextEnabled : styles.buttonTextDisabled]}>
             Continuar
