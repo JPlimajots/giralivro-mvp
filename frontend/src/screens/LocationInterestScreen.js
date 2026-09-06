@@ -129,14 +129,24 @@ export default function LocationInterestScreen({ navigation }) {
         </View>
 
         {/* Badge do Endereço Retornado pela ViaCEP */}
-        {addressInfo && (
+        {addressInfo && addressInfo.erro ? (
+          <View style={[styles.addressBadge, styles.errorBadge]}>
+            <Feather name="alert-circle" size={16} color="#D32F2F" style={{ marginRight: 6 }} />
+            <Text style={styles.errorBadgeText}>{addressInfo.mensagem}</Text>
+          </View>
+        ) : addressInfo ? (
           <View style={styles.addressBadge}>
             <Feather name="check-circle" size={16} color="#43A047" style={{ marginRight: 6 }} />
             <Text style={styles.addressText}>
-              📍 Bairro: <Text style={{ fontFamily: 'Inter_600SemiBold' }}>{addressInfo.bairro}</Text>, {addressInfo.localidade} - {addressInfo.uf}
+              {`📍 ${[
+                addressInfo.logradouro,
+                addressInfo.complemento ? `(${addressInfo.complemento})` : '',
+                addressInfo.bairro,
+                addressInfo.localidade && addressInfo.uf ? `${addressInfo.localidade} - ${addressInfo.uf}` : ''
+              ].filter(Boolean).join(', ')}`}
             </Text>
           </View>
-        )}
+        ) : null}
 
         <View style={styles.divider} />
 
