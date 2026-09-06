@@ -14,7 +14,7 @@ import { Feather } from '@expo/vector-icons';
 import { api } from '../services/api';
 
 export default function VisitorScreen({ navigation, route }) {
-  const { selectedGenres = [] } = route.params || {};
+  const { selectedGenres = [], cep = '', addressInfo = null, gpsCoords = null } = route.params || {};
 
   const [searchText, setSearchText] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('todos');
@@ -47,7 +47,7 @@ export default function VisitorScreen({ navigation, route }) {
           cover: 'https://covers.openlibrary.org/b/id/153253-M.jpg',
           modality: 'TROCA',
           condition: 'Excelente',
-          neighborhood: 'Boa Viagem',
+          neighborhood: addressInfo?.bairro || 'Boa Viagem',
           distance_km: 1.2,
           genre: 'Ficção',
         },
@@ -58,7 +58,7 @@ export default function VisitorScreen({ navigation, route }) {
           cover: 'https://covers.openlibrary.org/b/id/8406786-M.jpg',
           modality: 'TROCA',
           condition: 'Bom',
-          neighborhood: 'Boa Viagem',
+          neighborhood: addressInfo?.bairro || 'Boa Viagem',
           distance_km: 1.5,
           genre: 'Fantasia',
         },
@@ -70,7 +70,7 @@ export default function VisitorScreen({ navigation, route }) {
           modality: 'VENDA OU TROCA',
           price: 80.0,
           condition: 'Novo',
-          neighborhood: 'Pina',
+          neighborhood: addressInfo?.bairro || 'Pina',
           distance_km: 2.5,
           genre: 'Sci-Fi',
         },
@@ -96,6 +96,10 @@ export default function VisitorScreen({ navigation, route }) {
     return matchesFilter && matchesSearch;
   });
 
+  const locationDisplay = addressInfo
+    ? `${addressInfo.bairro || addressInfo.localidade || 'Sua região'}`
+    : 'Boa Viagem';
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -112,12 +116,12 @@ export default function VisitorScreen({ navigation, route }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Banner de Barreira de Login (Conforme Protótipo pág. 14) */}
+        {/* Banner de Barreira de Login */}
         <View style={styles.barrierBanner}>
           <View style={styles.barrierTextContainer}>
             <Text style={styles.barrierEyebrow}>VITRINE DE VISITANTE</Text>
             <Text style={styles.barrierTitle}>Descubra sua próxima história</Text>
-            <Text style={styles.barrierLocation}>📍 Buscando perto de Boa Viagem</Text>
+            <Text style={styles.barrierLocation}>📍 Buscando perto de {locationDisplay}</Text>
             <Text style={styles.barrierSubtitle}>
               Crie uma conta grátis para reservar livros, negociar e falar com outros leitores.
             </Text>
@@ -125,7 +129,7 @@ export default function VisitorScreen({ navigation, route }) {
 
           <TouchableOpacity
             style={styles.barrierButton}
-            onPress={() => navigation.navigate('SignUp', { onboardingGenres: selectedGenres })}
+            onPress={() => navigation.navigate('SignUp', { onboardingGenres: selectedGenres, onboardingCep: cep })}
             activeOpacity={0.8}
           >
             <Text style={styles.barrierButtonText}>Criar conta agora</Text>
@@ -194,7 +198,7 @@ export default function VisitorScreen({ navigation, route }) {
                   </View>
                 </View>
 
-                {/* Botão Ver Detalhes (Aciona Login se não logado) */}
+                {/* Botão Ver Detalhes */}
                 <TouchableOpacity
                   style={styles.detailsButton}
                   onPress={() => navigation.navigate('Login')}

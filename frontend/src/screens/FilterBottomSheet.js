@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,6 @@ import {
   Modal,
   ScrollView
 } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const COLORS = {
   primary: '#1E88E5',
@@ -43,17 +42,37 @@ const DISTANCES = [
   { label: 'Até 50 km', value: 50 }
 ];
 
-export default function FilterBottomSheet({ visible, onClose, filters, onApplyFilters }) {
-  const [selectedGenre, setSelectedGenre] = useState(filters?.genre || 'Todos');
-  const [selectedModality, setSelectedModality] = useState(filters?.modality || 'Todas');
-  const [selectedDistance, setSelectedDistance] = useState(filters?.maxDistance || 999);
+export default function FilterBottomSheet({
+  visible,
+  onClose,
+  filters,
+  currentFilters,
+  onApply,
+  onApplyFilters
+}) {
+  const activeFilters = currentFilters || filters || {};
+
+  const [selectedGenre, setSelectedGenre] = useState(activeFilters.genre || 'Todos');
+  const [selectedModality, setSelectedModality] = useState(activeFilters.modality || 'Todas');
+  const [selectedDistance, setSelectedDistance] = useState(activeFilters.maxDistance || 999);
+
+  useEffect(() => {
+    if (activeFilters) {
+      if (activeFilters.genre) setSelectedGenre(activeFilters.genre);
+      if (activeFilters.modality) setSelectedModality(activeFilters.modality);
+      if (activeFilters.maxDistance) setSelectedDistance(activeFilters.maxDistance);
+    }
+  }, [visible, activeFilters]);
 
   const handleApply = () => {
-    onApplyFilters({
+    const payload = {
       genre: selectedGenre === 'Todos' ? null : selectedGenre,
       modality: selectedModality === 'Todas' ? null : selectedModality,
       maxDistance: selectedDistance === 999 ? null : selectedDistance
-    });
+    };
+
+    if (typeof onApply === 'function') onApply(payload);
+    if (typeof onApplyFilters === 'function') onApplyFilters(payload);
     onClose();
   };
 
@@ -61,7 +80,9 @@ export default function FilterBottomSheet({ visible, onClose, filters, onApplyFi
     setSelectedGenre('Todos');
     setSelectedModality('Todas');
     setSelectedDistance(999);
-    onApplyFilters({ genre: null, modality: null, maxDistance: null });
+    const payload = { genre: null, modality: null, maxDistance: null };
+    if (typeof onApply === 'function') onApply(payload);
+    if (typeof onApplyFilters === 'function') onApplyFilters(payload);
     onClose();
   };
 

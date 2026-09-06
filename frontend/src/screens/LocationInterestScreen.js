@@ -51,19 +51,19 @@ export default function LocationInterestScreen({ navigation }) {
   const handleUseCurrentLocation = async () => {
     setLoadingCep(true);
     try {
-      // Solicita permissão nativa de GPS ao usuário no Expo Go
+      // Solicita permissão nativa de GPS no dispositivo/Expo Go
       const { status } = await Location.requestForegroundPermissionsAsync();
       
       if (status !== 'granted') {
         Alert.alert(
           'Permissão Negada',
-          'Não foi possível acessar a localização. Digite o CEP manualmente.'
+          'Não foi possível acessar o GPS. Por favor, digite seu CEP no campo abaixo.'
         );
         setLoadingCep(false);
         return;
       }
 
-      // Obtém as coordenadas reais do celular
+      // Obtém as coordenadas GPS do dispositivo
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
@@ -71,37 +71,52 @@ export default function LocationInterestScreen({ navigation }) {
       const { latitude, longitude } = location.coords;
       setGpsCoords({ lat: latitude, lng: longitude });
 
-      // Faz a geocodificação reversa para encontrar o endereço real
+      // Geocodificação reversa
       const reverse = await Location.reverseGeocodeAsync({ latitude, longitude });
       
       if (reverse && reverse.length > 0) {
         const place = reverse[0];
-        const realCep = place.postalCode || '51020-010';
-        setCep(realCep);
-
-        // Se tiver CEP retornado pelo GPS, busca via ViaCEP para ter dados completos
-        const info = await fetchAddressByCep(realCep);
-        if (info && !info.erro) {
-          setAddressInfo(info);
+        const foundCep = place.postalCode ? place.postalCode.replace(/\D/g, '') : null;
+        
+        if (foundCep) {
+          setCep(foundCep);
+          const info = await fetchAddressByCep(foundCep);
+          if (info && !info.erro) {
+            setAddressInfo(info);
+          } else {
+            setAddressInfo({
+              logradouro: place.street || place.name || 'Sua Localização',
+              bairro: place.subregion || place.district || 'Bairro Atual',
+              localidade: place.city || 'Sua Cidade',
+              uf: place.region || 'PE',
+            });
+          }
         } else {
           setAddressInfo({
             logradouro: place.street || place.name || 'Sua Localização',
-            complemento: '',
             bairro: place.subregion || place.district || 'Bairro Atual',
             localidade: place.city || 'Sua Cidade',
             uf: place.region || 'PE',
           });
         }
       } else {
-        // Fallback caso não retorne endereço reverso
-        const mockGpsCep = '51020-010';
-        setCep(mockGpsCep);
-        const info = await fetchAddressByCep(mockGpsCep);
+        // Fallback aproximado Recife
+        const fallbackCep = '51020-010';
+        setCep(fallbackCep);
+        const info = await fetchAddressByCep(fallbackCep);
         if (info && !info.erro) setAddressInfo(info);
       }
     } catch (error) {
-      console.warn('Erro ao obter GPS:', error);
-      Alert.alert('Erro de GPS', 'Não foi possível obter sua localização no momento.');
+      console.warn('Erro ao obter GPS no Expo Go:', error);
+      // Fallback em simuladores ou quando GPS desativado no celular
+      const defaultCep = '51020-010';
+      setCep(defaultCep);
+      const info = await fetchAddressByCep(defaultCep);
+      if (info && !info.erro) setAddressInfo(info);
+      Alert.alert(
+        'GPS Definido por Proximidade',
+        'Sua região foi definida como Boa Viagem, Recife - PE. Você também pode digitar seu CEP exato abaixo.'
+      );
     } finally {
       setLoadingCep(false);
     }
@@ -190,7 +205,6 @@ export default function LocationInterestScreen({ navigation }) {
             <Text style={styles.addressText}>
               {`📍 ${[
                 addressInfo.logradouro,
-                addressInfo.complemento ? `(${addressInfo.complemento})` : '',
                 addressInfo.bairro,
                 addressInfo.localidade && addressInfo.uf ? `${addressInfo.localidade} - ${addressInfo.uf}` : ''
               ].filter(Boolean).join(', ')}`}
