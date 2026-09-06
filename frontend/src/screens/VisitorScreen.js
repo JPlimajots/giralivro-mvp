@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { api } from '../services/api';
+import { COLORS } from '../constants/theme';
 
 export default function VisitorScreen({ navigation, route }) {
   const { selectedGenres = [], cep = '', addressInfo = null, gpsCoords = null } = route.params || {};
@@ -38,7 +39,6 @@ export default function VisitorScreen({ navigation, route }) {
       setBooks(response.data);
     } catch (error) {
       console.log('Error fetching public feed:', error);
-      // Mock de segurança caso API esteja offline
       setBooks([
         {
           id: 'b1',
@@ -121,7 +121,7 @@ export default function VisitorScreen({ navigation, route }) {
           <View style={styles.barrierTextContainer}>
             <Text style={styles.barrierEyebrow}>VITRINE DE VISITANTE</Text>
             <Text style={styles.barrierTitle}>Descubra sua próxima história</Text>
-            <Text style={styles.barrierLocation}>📍 Buscando perto de {locationDisplay}</Text>
+            <Text style={styles.barrierLocation}>{`📍 Buscando perto de ${locationDisplay}`}</Text>
             <Text style={styles.barrierSubtitle}>
               Crie uma conta grátis para reservar livros, negociar e falar com outros leitores.
             </Text>
@@ -170,48 +170,49 @@ export default function VisitorScreen({ navigation, route }) {
         <Text style={styles.sectionTitle}>Recomendados para você</Text>
 
         {loading ? (
-          <ActivityIndicator size="large" color="#1E88E5" style={{ marginVertical: 24 }} />
+          <ActivityIndicator size="large" color={COLORS.primary} style={{ marginVertical: 24 }} />
         ) : (
           <View style={styles.booksList}>
-            {filteredBooks.map((book) => (
-              <View key={book.id} style={styles.bookCard}>
-                <Image source={{ uri: book.cover }} style={styles.bookCover} resizeMode="cover" />
+            {filteredBooks.map((book) => {
+              const bookLocText = `${book.neighborhood} • ${book.distance_km}km`;
+              const modalityPriceText = `${book.modality}${book.price ? ` R$ ${book.price}` : ''}`;
 
-                <View style={styles.bookInfo}>
-                  <Text style={styles.bookTitle} numberOfLines={1}>
-                    {book.title}
-                  </Text>
-                  <Text style={styles.bookAuthor}>{book.author}</Text>
-                  <Text style={styles.bookLocation}>
-                    {book.neighborhood} • {book.distance_km}km
-                  </Text>
+              return (
+                <View key={book.id} style={styles.bookCard}>
+                  <Image source={{ uri: book.cover }} style={styles.bookCover} resizeMode="cover" />
 
-                  <View style={styles.badgeRow}>
-                    <View style={styles.modalityBadge}>
-                      <Text style={styles.modalityText}>
-                        {book.modality} {book.price ? `R$ ${book.price}` : ''}
-                      </Text>
-                    </View>
-                    <View style={styles.conditionBadge}>
-                      <Text style={styles.conditionText}>{book.condition}</Text>
+                  <View style={styles.bookInfo}>
+                    <Text style={styles.bookTitle} numberOfLines={1}>
+                      {book.title}
+                    </Text>
+                    <Text style={styles.bookAuthor}>{book.author}</Text>
+                    <Text style={styles.bookLocation}>{bookLocText}</Text>
+
+                    <View style={styles.badgeRow}>
+                      <View style={styles.modalityBadge}>
+                        <Text style={styles.modalityText}>{modalityPriceText}</Text>
+                      </View>
+                      <View style={styles.conditionBadge}>
+                        <Text style={styles.conditionText}>{book.condition}</Text>
+                      </View>
                     </View>
                   </View>
+
+                  {/* Botão Ver Detalhes */}
+                  <TouchableOpacity
+                    style={styles.detailsButton}
+                    onPress={() => navigation.navigate('Login')}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.detailsButtonText}>Ver Detalhes</Text>
+                  </TouchableOpacity>
                 </View>
+              );
+            })}
 
-                {/* Botão Ver Detalhes */}
-                <TouchableOpacity
-                  style={styles.detailsButton}
-                  onPress={() => navigation.navigate('Login')}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.detailsButtonText}>Ver Detalhes</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-
-            {filteredBooks.length === 0 && (
+            {filteredBooks.length === 0 ? (
               <Text style={styles.emptyText}>Nenhum livro encontrado para essa busca.</Text>
-            )}
+            ) : null}
           </View>
         )}
       </ScrollView>
@@ -329,6 +330,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E0E0E0',
     marginRight: 10,
+    minHeight: 38,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   filterChipSelected: {
     backgroundColor: '#1E88E5',
@@ -338,6 +342,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 14,
     color: '#666666',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   filterChipTextSelected: {
     color: '#FFFFFF',

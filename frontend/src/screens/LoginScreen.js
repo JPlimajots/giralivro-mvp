@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,17 +8,30 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, FontAwesome } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../services/supabase';
 import { api } from '../services/api';
+import { supabase } from '../services/supabase';
 
 export default function LoginScreen({ navigation, route }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.access_token) {
+        await AsyncStorage.setItem('@giralivro:token', session.access_token);
+      }
+    });
+
+    return () => {
+      authListener?.subscription?.unsubscribe();
+    };
+  }, []);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -87,19 +100,36 @@ export default function LoginScreen({ navigation, route }) {
   };
 
   const handleGoogleLogin = async () => {
-    Alert.alert('Login Social', 'Iniciando autenticação via Google...', [
-      {
-        text: 'Simular Sucesso',
-        onPress: async () => {
-          const mockToken = 'mock-jwt-token-google-user';
-          await AsyncStorage.setItem('@giralivro:token', mockToken);
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'Profile' }],
-          });
+    setLoading(true);
+    try {
+      // Chamada real da API Supabase OAuth Google
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: 'giralivro://login-callback',
         },
-      },
-    ]);
+      });
+
+      if (error) throw error;
+
+      if (data?.url) {
+        // Redireciona para a tela de autenticação real do Google
+        const canOpen = await Linking.canOpenURL(data.url);
+        if (canOpen) {
+          await Linking.openURL(data.url);
+        } else {
+          Alert.alert('Google Login', 'Iniciando consentimento do Google no Supabase...');
+        }
+      }
+    } catch (error) {
+      console.log('Google OAuth Error:', error);
+      Alert.alert(
+        'Login com Google',
+        'Não foi possível conectar ao Google OAuth no momento. Verifique a configuração de Provider no Dashboard do Supabase.'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -139,7 +169,7 @@ export default function LoginScreen({ navigation, route }) {
           <Feather name="lock" size={20} color="#666" style={styles.inputIcon} />
           <TextInput
             style={styles.input}
-            placeholder="Sua senha secreta"
+            placeholder="Sua senha de acesso"
             placeholderTextColor="#9E9E9E"
             secureTextEntry
             value={password}
@@ -157,27 +187,32 @@ export default function LoginScreen({ navigation, route }) {
           {loading ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.primaryButtonText}>Entrar na Conta</Text>
+            <Text style={styles.primaryButtonText}>Entrar</Text>
           )}
         </TouchableOpacity>
 
+        {/* Divisor */}
         <View style={styles.dividerContainer}>
           <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>OU</Text>
+          <Text style={styles.dividerText}>OU ENTRE COM</Text>
           <View style={styles.dividerLine} />
         </View>
 
-        {/* Login Social com Google */}
-        <TouchableOpacity style={styles.socialButton} onPress={handleGoogleLogin} activeOpacity={0.8}>
-          <FontAwesome name="google" size={20} color="#DB4437" style={{ marginRight: 12 }} />
-          <Text style={styles.socialButtonText}>Continuar com o Google</Text>
+        {/* Botão Login Google Supabase OAuth */}
+        <TouchableOpacity
+          style={styles.googleButton}
+          onPress={handleGoogleLogin}
+          activeOpacity={0.8}
+        >
+          <FontAwesome name="google" size={18} color="#DB4437" style={styles.googleIcon} />
+          <Text style={styles.googleButtonText}>Continuar com Google</Text>
         </TouchableOpacity>
 
-        {/* Ir para Cadastro */}
+        {/* Link Criar Conta */}
         <View style={styles.footerLinkContainer}>
-          <Text style={styles.footerText}>Ainda não possui uma conta? </Text>
+          <Text style={styles.footerText}>Ainda não tem conta? </Text>
           <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
-            <Text style={styles.footerLink}>Cadastre-se</Text>
+            <Text style={styles.footerLink}>Criar conta grátis</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -221,7 +256,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#4F4F4F',
     lineHeight: 22,
-    marginBottom: 28,
+    marginBottom: 32,
   },
   label: {
     fontFamily: 'Inter_600SemiBold',
@@ -278,11 +313,11 @@ const styles = StyleSheet.create({
   },
   dividerText: {
     fontFamily: 'Inter_600SemiBold',
-    fontSize: 13,
+    fontSize: 12,
     color: '#9E9E9E',
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
   },
-  socialButton: {
+  googleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -291,8 +326,12 @@ const styles = StyleSheet.create({
     borderColor: '#E0E0E0',
     height: 52,
     borderRadius: 26,
+    elevation: 1,
   },
-  socialButtonText: {
+  googleIcon: {
+    marginRight: 10,
+  },
+  googleButtonText: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 15,
     color: '#333333',
