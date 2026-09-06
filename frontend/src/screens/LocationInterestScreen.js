@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,12 +6,16 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
+import { fetchAddressByCep } from '../services/viacep';
 
 export default function LocationInterestScreen({ navigation }) {
   const [cep, setCep] = useState('');
+  const [addressInfo, setAddressInfo] = useState(null);
+  const [loadingCep, setLoadingCep] = useState(false);
   const [selectedGenres, setSelectedGenres] = useState([]);
 
   const genres = [
@@ -23,6 +27,35 @@ export default function LocationInterestScreen({ navigation }) {
     'Mistério',
     'Sci-Fi',
   ];
+
+  const handleCepChange = async (text) => {
+    setCep(text);
+    const clean = text.replace(/\D/g, '');
+    if (clean.length === 8) {
+      setLoadingCep(true);
+      const info = await fetchAddressByCep(clean);
+      if (info && !info.error) {
+        setAddressInfo(info);
+      } else {
+        setAddressInfo(null);
+      }
+      setLoadingCep(false);
+    } else {
+      setAddressInfo(null);
+    }
+  };
+
+  const handleUseCurrentLocation = async () => {
+    setLoadingCep(true);
+    // Simula GPS identificando CEP de Boa Viagem, Recife
+    const mockGpsCep = '51020-010';
+    setCep(mockGpsCep);
+    const info = await fetchAddressByCep(mockGpsCep);
+    if (info && !info.error) {
+      setAddressInfo(info);
+    }
+    setLoadingCep(false);
+  };
 
   const toggleGenre = (genre) => {
     if (selectedGenres.includes(genre)) {
@@ -60,11 +93,11 @@ export default function LocationInterestScreen({ navigation }) {
           Para mostrarmos os livros disponíveis mais perto de você.
         </Text>
 
-        {/* Localização */}
-        <TouchableOpacity style={styles.locationButton}>
+        {/* Botão Usar Localização Atual (GPS) */}
+        <TouchableOpacity style={styles.locationButton} onPress={handleUseCurrentLocation}>
           <Feather name="crosshair" size={18} color="#1E88E5" />
           <Text style={styles.locationText}>
-            Usar Localização Atual
+            Usar Localização Atual (GPS)
           </Text>
         </TouchableOpacity>
 
@@ -74,20 +107,36 @@ export default function LocationInterestScreen({ navigation }) {
           <View style={styles.separator} />
         </View>
 
-        {/* CEP */}
+        {/* CEP com integração ViaCEP */}
         <Text style={styles.label}>Digite seu CEP</Text>
 
         <View style={styles.inputContainer}>
           <TextInput
             value={cep}
-            onChangeText={setCep}
-            placeholder="Ex: 50000-000"
+            onChangeText={handleCepChange}
+            placeholder="Ex: 51020-010"
             placeholderTextColor="#BDBDBD"
+            keyboardType="numeric"
+            maxLength={9}
             style={styles.input}
           />
 
-          <Feather name="map" size={18} color="#9E9E9E" />
+          {loadingCep ? (
+            <ActivityIndicator size="small" color="#1E88E5" />
+          ) : (
+            <Feather name="map-pin" size={18} color="#1E88E5" />
+          )}
         </View>
+
+        {/* Badge do Endereço Retornado pela ViaCEP */}
+        {addressInfo && (
+          <View style={styles.addressBadge}>
+            <Feather name="check-circle" size={16} color="#43A047" style={{ marginRight: 6 }} />
+            <Text style={styles.addressText}>
+              📍 Bairro: <Text style={{ fontFamily: 'Inter_600SemiBold' }}>{addressInfo.bairro}</Text>, {addressInfo.localidade} - {addressInfo.uf}
+            </Text>
+          </View>
+        )}
 
         <View style={styles.divider} />
 
@@ -131,7 +180,7 @@ export default function LocationInterestScreen({ navigation }) {
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.primaryButton}
-          onPress={() => navigation.navigate('VisitorScreen', { selectedGenres, cep })}
+          onPress={() => navigation.navigate('VisitorScreen', { selectedGenres, cep, addressInfo })}
         >
           <Text style={styles.primaryButtonText}>
             Ir para o Painel
@@ -154,182 +203,179 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F5F6',
   },
-
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 24,
     paddingTop: 16,
-    paddingBottom: 16,
+    paddingBottom: 24,
   },
-
   progressContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-
   progressInactive: {
     width: 6,
     height: 4,
+    backgroundColor: '#E0E0E0',
     borderRadius: 2,
-    backgroundColor: '#D9D9D9',
     marginRight: 6,
   },
-
   progressActive: {
     width: 24,
     height: 4,
-    borderRadius: 2,
     backgroundColor: '#1E88E5',
+    borderRadius: 2,
+    marginRight: 6,
   },
-
   content: {
     paddingHorizontal: 24,
-    paddingBottom: 20,
+    paddingBottom: 40,
   },
-
   title: {
-    fontSize: 24,
-    color: '#333',
-    marginTop: 20,
-    marginBottom: 12,
-    fontWeight: '700',
+    fontFamily: 'Nunito_700Bold',
+    fontSize: 22,
+    color: '#333333',
+    marginBottom: 8,
   },
-
   subtitle: {
-    fontSize: 16,
-    color: '#555',
-    lineHeight: 24,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 15,
+    color: '#4F4F4F',
+    lineHeight: 22,
     marginBottom: 24,
   },
-
   locationButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#C9D8E6',
-    backgroundColor: '#EAF3FC',
-    height: 56,
+    borderColor: '#1E88E5',
     borderRadius: 8,
-    marginBottom: 24,
+    paddingVertical: 14,
+    marginBottom: 20,
   },
-
   locationText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 15,
     color: '#1E88E5',
-    fontSize: 16,
-    marginLeft: 8,
-    fontWeight: '600',
+    marginLeft: 10,
   },
-
   separatorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
-
   separator: {
     flex: 1,
     height: 1,
     backgroundColor: '#E0E0E0',
   },
-
   orText: {
-    marginHorizontal: 12,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
     color: '#9E9E9E',
-    fontWeight: '600',
+    paddingHorizontal: 12,
   },
-
   label: {
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 10,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
+    color: '#333333',
+    marginBottom: 8,
   },
-
   inputContainer: {
-    height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E0E0E0',
     borderRadius: 8,
-    backgroundColor: '#FFF',
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
+    paddingHorizontal: 16,
+    height: 52,
+    marginBottom: 8,
   },
-
   input: {
     flex: 1,
+    fontFamily: 'Inter_400Regular',
     fontSize: 15,
-    color: '#333',
+    color: '#333333',
   },
-
+  addressBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  addressText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    color: '#2E7D32',
+  },
   divider: {
     height: 1,
     backgroundColor: '#E0E0E0',
-    marginVertical: 28,
+    marginVertical: 20,
   },
-
   genreTitle: {
+    fontFamily: 'Nunito_700Bold',
     fontSize: 18,
-    color: '#333',
-    fontWeight: '600',
+    color: '#333333',
+    marginBottom: 4,
   },
-
   genreSubtitle: {
-    color: '#666',
-    marginTop: 6,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    color: '#666666',
     marginBottom: 16,
   },
-
   genreContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: 8,
   },
-
   genreChip: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 25,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#DADADA',
-    backgroundColor: '#FFF',
-    marginRight: 10,
-    marginBottom: 10,
+    borderColor: '#E0E0E0',
   },
-
   genreChipSelected: {
     backgroundColor: '#1E88E5',
     borderColor: '#1E88E5',
   },
-
   genreText: {
-    color: '#555',
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    color: '#666666',
   },
-
   genreTextSelected: {
-    color: '#FFF',
-    fontWeight: '600',
+    color: '#FFFFFF',
+    fontFamily: 'Inter_600SemiBold',
   },
-
   footer: {
     paddingHorizontal: 24,
     paddingBottom: 24,
     paddingTop: 12,
+    backgroundColor: '#F5F5F6',
   },
-
   primaryButton: {
-    height: 56,
-    borderRadius: 30,
-    backgroundColor: '#005BB5',
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#1E88E5',
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
   },
-
   primaryButtonText: {
-    color: '#FFF',
+    fontFamily: 'Inter_600SemiBold',
     fontSize: 16,
-    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
