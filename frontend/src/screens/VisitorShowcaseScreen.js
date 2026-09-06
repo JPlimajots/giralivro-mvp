@@ -149,6 +149,7 @@ return (
         <TouchableOpacity 
           style={[styles.primaryButton, isButtonEnabled ? styles.buttonEnabled : styles.buttonDisabled]}
           onPress={() => navigation.navigate('LocationInterest', { selectedObjectives, selectedBooks })}
+        >
           <Text style={[styles.buttonText, isButtonEnabled ? styles.buttonTextEnabled : styles.buttonTextDisabled]}>
             Continuar
           </Text>
