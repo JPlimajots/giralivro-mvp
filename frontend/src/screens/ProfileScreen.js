@@ -158,9 +158,20 @@ export default function ProfileScreen({ navigation }) {
 
         {/* Ações Rápidas */}
         <Text style={styles.sectionTitle}>Sua Estante Virtual</Text>
-        <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} onPress={() => Alert.alert('Estante Virtual', 'Módulo de cadastro de livros em breve!')}>
+        <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} onPress={() => navigation.navigate('MyVirtualShelf')}>
           <View style={styles.actionIconBg}>
             <Feather name="book-open" size={22} color="#1E88E5" />
+          </View>
+          <View style={styles.actionTextContainer}>
+            <Text style={styles.actionCardTitle}>Gerenciar Minha Estante</Text>
+            <Text style={styles.actionCardSub}>Veja e edite seus livros anunciados</Text>
+          </View>
+          <Feather name="chevron-right" size={20} color="#9E9E9E" />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} onPress={() => navigation.navigate('AddBookPhoto')}>
+          <View style={[styles.actionIconBg, { backgroundColor: '#E8F5E9' }]}>
+            <Feather name="plus-circle" size={22} color="#43A047" />
           </View>
           <View style={styles.actionTextContainer}>
             <Text style={styles.actionCardTitle}>Cadastrar novos livros</Text>
@@ -170,12 +181,12 @@ export default function ProfileScreen({ navigation }) {
         </TouchableOpacity>
 
         <Text style={styles.sectionTitle}>Sua Wishlist</Text>
-        <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} onPress={() => Alert.alert('Wishlist', 'Sua lista de desejos!')}>
+        <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} onPress={() => navigation.navigate('Wishlist')}>
           <View style={[styles.actionIconBg, { backgroundColor: '#FFF3E0' }]}>
             <Feather name="heart" size={22} color="#F57C00" />
           </View>
           <View style={styles.actionTextContainer}>
-            <Text style={styles.actionCardTitle}>Adicionar livros desejados</Text>
+            <Text style={styles.actionCardTitle}>Livros desejados</Text>
             <Text style={styles.actionCardSub}>Receba alertas quando alguém anunciar</Text>
           </View>
           <Feather name="chevron-right" size={20} color="#9E9E9E" />

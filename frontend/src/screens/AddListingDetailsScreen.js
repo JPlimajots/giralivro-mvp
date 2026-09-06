@@ -98,7 +98,7 @@ export default function AddListingDetailsScreen({ navigation, route }) {
         author: author.trim(),
         cover_url: coverUrl,
         modality: modality,
-        price: isSale && price ? parseFloat(price) : None,
+        price: isSale && price ? parseFloat(price) : null,
         condition: condition,
         description: description,
         genre: genre,

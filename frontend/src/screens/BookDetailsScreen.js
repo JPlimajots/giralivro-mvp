@@ -23,7 +23,7 @@ const COLORS = {
 };
 
 export default function BookDetailsScreen({ route, navigation }) {
-  const { listing } = route.params || {};
+  const listing = route.params?.listing || route.params?.book;
   const [favorite, setFavorite] = useState(false);
 
   if (!listing) {
@@ -64,7 +64,7 @@ export default function BookDetailsScreen({ route, navigation }) {
         {/* Imagem de Capa com Botões Flutuantes */}
         <View style={styles.imageContainer}>
           <Image
-            source={{ uri: listing.cover_url || 'https://via.placeholder.com/400x500?text=Sem+Capa' }}
+            source={{ uri: listing.cover_url || listing.cover || 'https://via.placeholder.com/400x500?text=Sem+Capa' }}
             style={styles.coverImage}
             resizeMode="cover"
           />

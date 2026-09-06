@@ -14,85 +14,100 @@ import { api } from '../services/api';
 
 export default function HomeScreen({ navigation }) {
   const [feed, setFeed] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchHomeFeed = async () => {
+  const fetchHomeData = async () => {
     setLoading(true);
     try {
-      const response = await api.get('/feed/home');
-      setFeed(response.data);
+      const [feedRes, profileRes] = await Promise.allSettled([
+        api.get('/feed/home'),
+        api.get('/users/me'),
+      ]);
+
+      if (feedRes.status === 'fulfilled') {
+        setFeed(feedRes.value.data);
+      }
+      if (profileRes.status === 'fulfilled') {
+        setUserProfile(profileRes.value.data);
+      }
     } catch (error) {
-      console.log('Error fetching home feed:', error);
-      setFeed({
-        recommended: [
-          {
-            id: 'h1',
-            title: 'Neon Echo',
-            author: 'Eliza Reed',
-            cover_url: 'https://covers.openlibrary.org/b/id/8231856-M.jpg',
-            modality: 'TROCA',
-            condition: 'Excelente',
-            neighborhood: 'Boa Viagem',
-            distance_km: 0.8,
-            genre: 'Sci-Fi',
-          },
-          {
-            id: 'h2',
-            title: 'Throne of Shadows',
-            author: 'Elyon B. Drake',
-            cover_url: 'https://covers.openlibrary.org/b/id/10454955-M.jpg',
-            modality: 'VENDA',
-            price: 45.0,
-            condition: 'Novo',
-            neighborhood: 'Boa Viagem',
-            distance_km: 1.2,
-            genre: 'Fantasia',
-          },
-        ],
-        wishlist_matches: [
-          {
-            id: 'w1',
-            title: 'The Eternal Garden',
-            author: 'Eleanor Vance',
-            cover_url: 'https://covers.openlibrary.org/b/id/153253-M.jpg',
-            modality: 'TROCA',
-            condition: 'Novo',
-            neighborhood: 'Boa Viagem',
-            distance_km: 0.4,
-            genre: 'Ficção',
-          },
-        ],
-        highlights: [
-          {
-            id: 'hl1',
-            title: 'Night Lights',
-            author: 'Clara Thorne',
-            cover_url: 'https://covers.openlibrary.org/b/id/9255566-M.jpg',
-            modality: 'VENDA',
-            price: 30.0,
-            condition: 'Bom',
-            neighborhood: 'Pina',
-            distance_km: 1.5,
-            genre: 'Romance',
-          },
-        ],
-      });
+      console.log('Error fetching home data:', error);
     } finally {
+      if (!feed) {
+        setFeed({
+          recommended: [
+            {
+              id: 'h1',
+              title: 'Neon Echo',
+              author: 'Eliza Reed',
+              cover_url: 'https://covers.openlibrary.org/b/id/8231856-M.jpg',
+              modality: 'TROCA',
+              condition: 'Excelente',
+              neighborhood: 'Boa Viagem',
+              distance_km: 0.8,
+              genre: 'Sci-Fi',
+            },
+            {
+              id: 'h2',
+              title: 'Throne of Shadows',
+              author: 'Elyon B. Drake',
+              cover_url: 'https://covers.openlibrary.org/b/id/10454955-M.jpg',
+              modality: 'VENDA',
+              price: 45.0,
+              condition: 'Novo',
+              neighborhood: 'Boa Viagem',
+              distance_km: 1.2,
+              genre: 'Fantasia',
+            },
+          ],
+          wishlist_matches: [
+            {
+              id: 'w1',
+              title: 'The Eternal Garden',
+              author: 'Eleanor Vance',
+              cover_url: 'https://covers.openlibrary.org/b/id/153253-M.jpg',
+              modality: 'TROCA',
+              condition: 'Novo',
+              neighborhood: 'Boa Viagem',
+              distance_km: 0.4,
+              genre: 'Ficção',
+            },
+          ],
+          highlights: [
+            {
+              id: 'hl1',
+              title: 'Night Lights',
+              author: 'Clara Thorne',
+              cover_url: 'https://covers.openlibrary.org/b/id/9255566-M.jpg',
+              modality: 'VENDA',
+              price: 30.0,
+              condition: 'Bom',
+              neighborhood: 'Pina',
+              distance_km: 1.5,
+              genre: 'Romance',
+            },
+          ],
+        });
+      }
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchHomeFeed();
+    fetchHomeData();
   }, []);
+
+  const userName = userProfile?.full_name ? userProfile.full_name.split(' ')[0].toUpperCase() : 'CAMILA';
+  const locationText = userProfile?.cep ? `CEP ${userProfile.cep}` : 'Boa Viagem';
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header Logado */}
       <View style={styles.header}>
         <View style={styles.headerUser}>
-          <Text style={styles.greetingEyebrow}>OLÁ, CAMILA!</Text>
-          <Text style={styles.locationSub}>📍 Buscando perto de Boa Viagem</Text>
+          <Text style={styles.greetingEyebrow}>OLÁ, {userName}!</Text>
+          <Text style={styles.locationSub}>📍 Buscando perto de {locationText}</Text>
         </View>
 
         <View style={styles.headerIconsRow}>
