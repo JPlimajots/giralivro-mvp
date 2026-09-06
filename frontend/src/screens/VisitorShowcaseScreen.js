@@ -84,8 +84,13 @@ export default function VisitorShowcaseScreen({ route, navigation }) {
           />
         </View>
 
-        {/* Chips de Categoria */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsContainer}>
+        {/* Chips de Categoria sem no de espaço solto */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.chipsContainer}
+          contentContainerStyle={styles.chipsScrollContent}
+        >
           {CATEGORIES.map((category) => (
             <TouchableOpacity
               key={category}
@@ -98,7 +103,6 @@ export default function VisitorShowcaseScreen({ route, navigation }) {
               </Text>
             </TouchableOpacity>
           ))}
-          <View style={{ width: 24 }} /> {/* Espaçamento final */}
         </ScrollView>
 
         {/* Lista de Livros */}
@@ -247,6 +251,9 @@ const styles = StyleSheet.create({
   chipsContainer: {
     paddingHorizontal: 24,
     marginBottom: 24,
+  },
+  chipsScrollContent: {
+    paddingRight: 24,
   },
   chip: {
     backgroundColor: '#F5F5F6',
