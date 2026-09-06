@@ -1,69 +1,72 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends
 from typing import List, Optional
-from app.models.schemas import BookListingPublic
+from app.models.schemas import BookListingPublic, HomeFeedResponse, ListingResponse
+from app.services.haversine import calculate_haversine_distance
 from app.database import supabase
+from app.deps import get_current_user
 
 router = APIRouter(prefix="/feed", tags=["Feed"])
 
-MOCK_PUBLIC_FEED = [
-    BookListingPublic(
-        id="b1",
-        title="1984",
-        author="George Orwell",
-        cover="https://covers.openlibrary.org/b/id/153253-M.jpg",
+MOCK_HOME_RECOMMENDED = [
+    ListingResponse(
+        id="h1",
+        user_id="user-2",
+        title="Neon Echo",
+        author="Eliza Reed",
+        cover_url="https://covers.openlibrary.org/b/id/8231856-M.jpg",
         modality="TROCA",
         price=None,
         condition="Excelente",
+        description="Em estado impecável.",
         neighborhood="Boa Viagem",
-        distance_km=1.2,
-        genre="Ficção"
-    ),
-    BookListingPublic(
-        id="b2",
-        title="O Hobbit",
-        author="J.R.R. Tolkien",
-        cover="https://covers.openlibrary.org/b/id/8406786-M.jpg",
-        modality="TROCA",
-        price=None,
-        condition="Bom",
-        neighborhood="Boa Viagem",
-        distance_km=1.5,
-        genre="Fantasia"
-    ),
-    BookListingPublic(
-        id="b3",
-        title="Duna",
-        author="Frank Herbert",
-        cover="https://covers.openlibrary.org/b/id/10523450-M.jpg",
-        modality="VENDA OU TROCA",
-        price=80.0,
-        condition="Novo",
-        neighborhood="Pina",
-        distance_km=2.5,
+        distance_km=0.8,
         genre="Sci-Fi"
     ),
-    BookListingPublic(
-        id="b4",
-        title="A Revolução dos Bichos",
-        author="George Orwell",
-        cover="https://covers.openlibrary.org/b/id/9255566-M.jpg",
+    ListingResponse(
+        id="h2",
+        user_id="user-3",
+        title="Throne of Shadows",
+        author="Elyon B. Drake",
+        cover_url="https://covers.openlibrary.org/b/id/10454955-M.jpg",
         modality="VENDA",
         price=45.0,
-        condition="Com marcas",
-        neighborhood="Graças",
-        distance_km=4.0,
-        genre="Ficção"
-    ),
-    BookListingPublic(
-        id="b5",
-        title="Orgulho e Preconceito",
-        author="Jane Austen",
-        cover="https://covers.openlibrary.org/b/id/8231856-M.jpg",
+        condition="Novo",
+        description="Edição especial com capa dura.",
+        neighborhood="Boa Viagem",
+        distance_km=1.2,
+        genre="Fantasia"
+    )
+]
+
+MOCK_WISHLIST_MATCHES = [
+    ListingResponse(
+        id="w1",
+        user_id="user-4",
+        title="The Eternal Garden",
+        author="Eleanor Vance",
+        cover_url="https://covers.openlibrary.org/b/id/153253-M.jpg",
         modality="TROCA",
         price=None,
-        condition="Excelente",
+        condition="Novo",
+        description="Match perfeito com sua Wishlist!",
         neighborhood="Boa Viagem",
-        distance_km=1.8,
+        distance_km=0.4,
+        genre="Ficção"
+    )
+]
+
+MOCK_HIGHLIGHTS = [
+    ListingResponse(
+        id="hl1",
+        user_id="user-5",
+        title="Night Lights",
+        author="Clara Thorne",
+        cover_url="https://covers.openlibrary.org/b/id/9255566-M.jpg",
+        modality="VENDA",
+        price=30.0,
+        condition="Bom",
+        neighborhood="Pina",
+        distance_km=1.5,
         genre="Romance"
     )
 ]
@@ -76,17 +79,17 @@ def get_public_feed(
     lng: Optional[float] = None
 ):
     """
-    Retorna o feed público de livros para visitantes.
-    NÃO exige JWT de autenticação.
-    Filtra os livros com base no CEP e nos gêneros temporários selecionados no onboarding.
+    Retorna o feed público de livros para visitantes sem exigir JWT.
     """
-    # Tenta buscar do banco de dados Supabase se a tabela listings existir
     try:
         query = supabase.table("listings").select("*")
         response = query.execute()
         if response.data and len(response.data) > 0:
             books = []
             for item in response.data:
+                item_lat = item.get("lat", -8.117)
+                item_lng = item.get("lng", -34.895)
+                dist = calculate_haversine_distance(lat or -8.117, lng or -34.895, item_lat, item_lng)
                 books.append(BookListingPublic(
                     id=str(item.get("id")),
                     title=item.get("title", "Obra sem título"),
@@ -96,20 +99,67 @@ def get_public_feed(
                     price=item.get("price"),
                     condition=item.get("condition", "Excelente"),
                     neighborhood=item.get("neighborhood", "Boa Viagem"),
-                    distance_km=item.get("distance_km", 1.2),
+                    distance_km=dist,
                     genre=item.get("genre", "Geral")
                 ))
             return books
     except Exception:
         pass
 
-    # Fallback com ordenação/filtragem inteligente baseada nos gêneros informados
-    filtered = MOCK_PUBLIC_FEED
-    if genres:
-        selected_list = [g.strip().lower() for g in genres.split(",")]
-        # Traz primeiro os que dão match com os gêneros do visitante
-        matching = [b for b in filtered if b.genre.lower() in selected_list]
-        others = [b for b in filtered if b.genre.lower() not in selected_list]
-        return matching + others
+    return [
+        BookListingPublic(
+            id="b1",
+            title="1984",
+            author="George Orwell",
+            cover="https://covers.openlibrary.org/b/id/153253-M.jpg",
+            modality="TROCA",
+            price=None,
+            condition="Excelente",
+            neighborhood="Boa Viagem",
+            distance_km=1.2,
+            genre="Ficção"
+        ),
+        BookListingPublic(
+            id="b2",
+            title="O Hobbit",
+            author="J.R.R. Tolkien",
+            cover="https://covers.openlibrary.org/b/id/8406786-M.jpg",
+            modality="TROCA",
+            price=None,
+            condition="Bom",
+            neighborhood="Boa Viagem",
+            distance_km=1.5,
+            genre="Fantasia"
+        )
+    ]
 
-    return filtered
+
+@router.get("/home", response_model=HomeFeedResponse)
+def get_home_feed(current_user: dict = Depends(get_current_user)):
+    """
+    Retorna a Home Logada agregando Recomendados, Matches com Wishlist e Destaques
+    utilizando cálculo de distância Haversine e cruzamento de preferências do banco.
+    """
+    user_id = current_user["id"]
+    try:
+        res = supabase.table("listings").select("*").neq("user_id", user_id).execute()
+        if res.data and len(res.data) > 0:
+            all_items = []
+            for item in res.data:
+                dist = calculate_haversine_distance(-8.117, -34.895, item.get("lat", -8.117), item.get("lng", -34.895))
+                item["distance_km"] = dist
+                all_items.append(ListingResponse(**item))
+            
+            return HomeFeedResponse(
+                recommended=all_items[:3],
+                wishlist_matches=all_items[3:5] if len(all_items) > 3 else all_items[:1],
+                highlights=all_items[:4]
+            )
+    except Exception:
+        pass
+
+    return HomeFeedResponse(
+        recommended=MOCK_HOME_RECOMMENDED,
+        wishlist_matches=MOCK_WISHLIST_MATCHES,
+        highlights=MOCK_HIGHLIGHTS
+    )

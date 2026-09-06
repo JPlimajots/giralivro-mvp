@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,11 @@ import {
   ScrollView,
   TextInput,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { fetchAddressByCep } from '../services/viacep';
 
 export default function LocationInterestScreen({ navigation }) {
@@ -17,6 +19,7 @@ export default function LocationInterestScreen({ navigation }) {
   const [addressInfo, setAddressInfo] = useState(null);
   const [loadingCep, setLoadingCep] = useState(false);
   const [selectedGenres, setSelectedGenres] = useState([]);
+  const [gpsCoords, setGpsCoords] = useState(null);
 
   const genres = [
     'Ficção',
@@ -34,10 +37,10 @@ export default function LocationInterestScreen({ navigation }) {
     if (clean.length === 8) {
       setLoadingCep(true);
       const info = await fetchAddressByCep(clean);
-      if (info && !info.error) {
+      if (info && !info.erro) {
         setAddressInfo(info);
       } else {
-        setAddressInfo(null);
+        setAddressInfo({ erro: true, mensagem: 'CEP informado não foi encontrado.' });
       }
       setLoadingCep(false);
     } else {
@@ -47,14 +50,61 @@ export default function LocationInterestScreen({ navigation }) {
 
   const handleUseCurrentLocation = async () => {
     setLoadingCep(true);
-    // Simula GPS identificando CEP de Boa Viagem, Recife
-    const mockGpsCep = '51020-010';
-    setCep(mockGpsCep);
-    const info = await fetchAddressByCep(mockGpsCep);
-    if (info && !info.error) {
-      setAddressInfo(info);
+    try {
+      // Solicita permissão nativa de GPS ao usuário no Expo Go
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permissão Negada',
+          'Não foi possível acessar a localização. Digite o CEP manualmente.'
+        );
+        setLoadingCep(false);
+        return;
+      }
+
+      // Obtém as coordenadas reais do celular
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const { latitude, longitude } = location.coords;
+      setGpsCoords({ lat: latitude, lng: longitude });
+
+      // Faz a geocodificação reversa para encontrar o endereço real
+      const reverse = await Location.reverseGeocodeAsync({ latitude, longitude });
+      
+      if (reverse && reverse.length > 0) {
+        const place = reverse[0];
+        const realCep = place.postalCode || '51020-010';
+        setCep(realCep);
+
+        // Se tiver CEP retornado pelo GPS, busca via ViaCEP para ter dados completos
+        const info = await fetchAddressByCep(realCep);
+        if (info && !info.erro) {
+          setAddressInfo(info);
+        } else {
+          setAddressInfo({
+            logradouro: place.street || place.name || 'Sua Localização',
+            complemento: '',
+            bairro: place.subregion || place.district || 'Bairro Atual',
+            localidade: place.city || 'Sua Cidade',
+            uf: place.region || 'PE',
+          });
+        }
+      } else {
+        // Fallback caso não retorne endereço reverso
+        const mockGpsCep = '51020-010';
+        setCep(mockGpsCep);
+        const info = await fetchAddressByCep(mockGpsCep);
+        if (info && !info.erro) setAddressInfo(info);
+      }
+    } catch (error) {
+      console.warn('Erro ao obter GPS:', error);
+      Alert.alert('Erro de GPS', 'Não foi possível obter sua localização no momento.');
+    } finally {
+      setLoadingCep(false);
     }
-    setLoadingCep(false);
   };
 
   const toggleGenre = (genre) => {
@@ -93,8 +143,8 @@ export default function LocationInterestScreen({ navigation }) {
           Para mostrarmos os livros disponíveis mais perto de você.
         </Text>
 
-        {/* Botão Usar Localização Atual (GPS) */}
-        <TouchableOpacity style={styles.locationButton} onPress={handleUseCurrentLocation}>
+        {/* Botão Usar Localização Atual (GPS Real) */}
+        <TouchableOpacity style={styles.locationButton} onPress={handleUseCurrentLocation} activeOpacity={0.8}>
           <Feather name="crosshair" size={18} color="#1E88E5" />
           <Text style={styles.locationText}>
             Usar Localização Atual (GPS)
@@ -128,7 +178,7 @@ export default function LocationInterestScreen({ navigation }) {
           )}
         </View>
 
-        {/* Badge do Endereço Retornado pela ViaCEP */}
+        {/* Badge do Endereço Retornado pela ViaCEP ou GPS */}
         {addressInfo && addressInfo.erro ? (
           <View style={[styles.addressBadge, styles.errorBadge]}>
             <Feather name="alert-circle" size={16} color="#D32F2F" style={{ marginRight: 6 }} />
@@ -190,7 +240,7 @@ export default function LocationInterestScreen({ navigation }) {
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.primaryButton}
-          onPress={() => navigation.navigate('VisitorScreen', { selectedGenres, cep, addressInfo })}
+          onPress={() => navigation.navigate('VisitorScreen', { selectedGenres, cep, addressInfo, gpsCoords })}
         >
           <Text style={styles.primaryButtonText}>
             Ir para o Painel
@@ -325,6 +375,16 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 13,
     color: '#2E7D32',
+    flex: 1,
+  },
+  errorBadge: {
+    backgroundColor: '#FFEBEE',
+  },
+  errorBadgeText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    color: '#C62828',
+    flex: 1,
   },
   divider: {
     height: 1,
