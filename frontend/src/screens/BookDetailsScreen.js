@@ -55,6 +55,9 @@ export default function BookDetailsScreen({ route, navigation }) {
     );
   };
 
+  const formattedLocation = `${listing.neighborhood || 'Boa Viagem'}, ${listing.city || 'Recife'} - ${listing.uf || 'PE'}${listing.distance_km !== undefined ? ` (${listing.distance_km.toFixed(1)} km de você)` : ''}`;
+  const formattedPrice = listing.price ? `R$ ${Number(listing.price).toFixed(2)}` : 'GRÁTIS (Doação)';
+
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -90,34 +93,27 @@ export default function BookDetailsScreen({ route, navigation }) {
               <Text style={styles.modalityBadgeText}>{listing.modality}</Text>
             </View>
             <View style={styles.conditionBadge}>
-              <Text style={styles.conditionBadgeText}>Estado: {listing.condition}</Text>
+              <Text style={styles.conditionBadgeText}>{`Estado: ${listing.condition}`}</Text>
             </View>
           </View>
 
           <Text style={styles.title}>{listing.title}</Text>
-          <Text style={styles.author}>por {listing.author}</Text>
+          <Text style={styles.author}>{`por ${listing.author}`}</Text>
 
-          {listing.price ? (
-            <Text style={styles.price}>R$ {Number(listing.price).toFixed(2)}</Text>
-          ) : (
-            <Text style={styles.freePrice}>GRÁTIS (Doação)</Text>
-          )}
+          <Text style={listing.price ? styles.price : styles.freePrice}>{formattedPrice}</Text>
 
           <View style={styles.divider} />
 
           {/* Localização */}
           <View style={styles.infoRow}>
             <Icon name="map-marker-outline" size={22} color={COLORS.primary} />
-            <Text style={styles.infoText}>
-              {listing.neighborhood || 'Boa Viagem'}, {listing.city || 'Recife'} - {listing.uf || 'PE'}
-              {listing.distance_km !== undefined ? ` (${listing.distance_km.toFixed(1)} km de você)` : ''}
-            </Text>
+            <Text style={styles.infoText}>{formattedLocation}</Text>
           </View>
 
           {/* Gênero */}
           <View style={styles.infoRow}>
             <Icon name="book-open-variant" size={22} color={COLORS.primary} />
-            <Text style={styles.infoText}>Gênero: {listing.genre || 'Não informado'}</Text>
+            <Text style={styles.infoText}>{`Gênero: ${listing.genre || 'Não informado'}`}</Text>
           </View>
 
           <View style={styles.divider} />
