@@ -7,17 +7,7 @@ import {
   Modal,
   ScrollView
 } from 'react-native';
-
-const COLORS = {
-  primary: '#1E88E5',
-  secondary: '#43A047',
-  accent: '#FBC02D',
-  background: '#F5F5F6',
-  surface: '#FFFFFF',
-  text: '#212121',
-  subtitle: '#666666',
-  border: '#E0E0E0'
-};
+import { COLORS } from '../constants/theme';
 
 const GENRES = [
   'Todos',
@@ -43,7 +33,7 @@ const DISTANCES = [
 ];
 
 export default function FilterBottomSheet({
-  visible,
+  visible = false,
   onClose,
   filters,
   currentFilters,
@@ -58,32 +48,31 @@ export default function FilterBottomSheet({
 
   useEffect(() => {
     if (activeFilters) {
-      if (activeFilters.genre) setSelectedGenre(activeFilters.genre);
-      if (activeFilters.modality) setSelectedModality(activeFilters.modality);
-      if (activeFilters.maxDistance) setSelectedDistance(activeFilters.maxDistance);
+      setSelectedGenre(activeFilters.genre || 'Todos');
+      setSelectedModality(activeFilters.modality || 'Todas');
+      setSelectedDistance(activeFilters.maxDistance || 999);
     }
-  }, [visible, activeFilters]);
+  }, [visible, activeFilters.genre, activeFilters.modality, activeFilters.maxDistance]);
+
+  const dispatchApply = (payload) => {
+    if (typeof onApply === 'function') onApply(payload);
+    if (typeof onApplyFilters === 'function') onApplyFilters(payload);
+    if (typeof onClose === 'function') onClose();
+  };
 
   const handleApply = () => {
-    const payload = {
+    dispatchApply({
       genre: selectedGenre === 'Todos' ? null : selectedGenre,
       modality: selectedModality === 'Todas' ? null : selectedModality,
       maxDistance: selectedDistance === 999 ? null : selectedDistance
-    };
-
-    if (typeof onApply === 'function') onApply(payload);
-    if (typeof onApplyFilters === 'function') onApplyFilters(payload);
-    onClose();
+    });
   };
 
   const handleReset = () => {
     setSelectedGenre('Todos');
     setSelectedModality('Todas');
     setSelectedDistance(999);
-    const payload = { genre: null, modality: null, maxDistance: null };
-    if (typeof onApply === 'function') onApply(payload);
-    if (typeof onApplyFilters === 'function') onApplyFilters(payload);
-    onClose();
+    dispatchApply({ genre: null, modality: null, maxDistance: null });
   };
 
   return (
@@ -92,7 +81,6 @@ export default function FilterBottomSheet({
         <TouchableOpacity style={styles.backdrop} onPress={onClose} activeOpacity={1} />
         
         <View style={styles.sheetContent}>
-          {/* Indicador de Arraste */}
           <View style={styles.dragHandle} />
 
           {/* Header */}
@@ -260,7 +248,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent'
   },
   activeChip: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: COLORS.primaryLight,
     borderColor: COLORS.primary
   },
   chipText: {

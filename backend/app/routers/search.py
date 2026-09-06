@@ -6,6 +6,9 @@ from app.database import supabase
 
 router = APIRouter(prefix="/search", tags=["Busca e Filtros Especializados"])
 
+DEFAULT_USER_LAT = -8.117
+DEFAULT_USER_LNG = -34.895
+
 MOCK_SEARCH_CATALOG = [
     BookListingPublic(
         id="s1",
@@ -81,6 +84,39 @@ MOCK_SEARCH_CATALOG = [
     )
 ]
 
+
+def _matches_filters(
+    item: BookListingPublic,
+    q: Optional[str],
+    genre: Optional[str],
+    modality: Optional[str],
+    max_distance: Optional[float],
+    min_price: Optional[float],
+    max_price: Optional[float]
+) -> bool:
+    if q:
+        term = q.lower()
+        if term not in item.title.lower() and term not in item.author.lower():
+            return False
+
+    if genre and genre.lower() != 'todos' and item.genre.lower() != genre.lower():
+        return False
+
+    if modality and modality.lower() != 'todas' and modality.lower() not in item.modality.lower():
+        return False
+
+    if max_distance and item.distance_km > max_distance:
+        return False
+
+    if item.price is not None:
+        if min_price and item.price < min_price:
+            return False
+        if max_price and item.price > max_price:
+            return False
+
+    return True
+
+
 @router.get("", response_model=List[BookListingPublic])
 def search_listings(
     q: Optional[str] = Query(None, description="Busca por título, autor ou ISBN"),
@@ -89,14 +125,13 @@ def search_listings(
     max_distance: Optional[float] = Query(None, description="Distância máxima em km"),
     min_price: Optional[float] = Query(None, description="Preço mínimo para venda"),
     max_price: Optional[float] = Query(None, description="Preço máximo para venda"),
-    user_lat: Optional[float] = Query(-8.117, description="Latitude do usuário"),
-    user_lng: Optional[float] = Query(-34.895, description="Longitude do usuário")
+    user_lat: Optional[float] = Query(DEFAULT_USER_LAT, description="Latitude do usuário"),
+    user_lng: Optional[float] = Query(DEFAULT_USER_LNG, description="Longitude do usuário")
 ):
     """
     Busca textual cruzada com suporte a múltiplos parâmetros combinados na query string.
     Calcula distâncias via Haversine.
     """
-    # Tenta buscar do Supabase se disponível
     try:
         query = supabase.table("listings").select("*")
         if q:
@@ -107,11 +142,11 @@ def search_listings(
             query = query.ilike("modality", f"%{modality}%")
         
         res = query.execute()
-        if res.data and len(res.data) > 0:
+        if res.data:
             result = []
             for item in res.data:
-                item_lat = item.get("lat", -8.117)
-                item_lng = item.get("lng", -34.895)
+                item_lat = item.get("lat", DEFAULT_USER_LAT)
+                item_lng = item.get("lng", DEFAULT_USER_LNG)
                 dist = calculate_haversine_distance(user_lat, user_lng, item_lat, item_lng)
 
                 if max_distance and dist > max_distance:
@@ -139,34 +174,7 @@ def search_listings(
     except Exception:
         pass
 
-    # Algoritmo de filtragem e Haversine nos dados locais
-    filtered = []
-    for item in MOCK_SEARCH_CATALOG:
-        # Busca textual
-        if q:
-            term = q.lower()
-            if term not in item.title.lower() and term not in item.author.lower():
-                continue
-
-        # Filtro de gênero
-        if genre and genre.lower() != 'todos' and item.genre.lower() != genre.lower():
-            continue
-
-        # Filtro de modalidade
-        if modality and modality.lower() != 'todas' and modality.lower() not in item.modality.lower():
-            continue
-
-        # Filtro de distância
-        if max_distance and item.distance_km > max_distance:
-            continue
-
-        # Filtro de preço
-        if item.price is not None:
-            if min_price and item.price < min_price:
-                continue
-            if max_price and item.price > max_price:
-                continue
-
-        filtered.append(item)
-
-    return filtered
+    return [
+        item for item in MOCK_SEARCH_CATALOG
+        if _matches_filters(item, q, genre, modality, max_distance, min_price, max_price)
+    ]

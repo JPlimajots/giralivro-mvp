@@ -7,6 +7,9 @@ from app.deps import get_current_user
 
 router = APIRouter(prefix="/feed", tags=["Feed"])
 
+DEFAULT_LAT = -8.117
+DEFAULT_LNG = -34.895
+
 MOCK_HOME_RECOMMENDED = [
     ListingResponse(
         id="h1",
@@ -71,6 +74,26 @@ MOCK_HIGHLIGHTS = [
     )
 ]
 
+
+def _map_row_to_public_listing(row: dict, user_lat: float, user_lng: float) -> BookListingPublic:
+    item_lat = row.get("lat", DEFAULT_LAT)
+    item_lng = row.get("lng", DEFAULT_LNG)
+    dist = calculate_haversine_distance(user_lat, user_lng, item_lat, item_lng)
+    
+    return BookListingPublic(
+        id=str(row.get("id")),
+        title=row.get("title", "Obra sem título"),
+        author=row.get("author", "Autor Desconhecido"),
+        cover=row.get("cover_url", "https://covers.openlibrary.org/b/id/153253-M.jpg"),
+        modality=row.get("modality", "TROCA"),
+        price=row.get("price"),
+        condition=row.get("condition", "Excelente"),
+        neighborhood=row.get("neighborhood", "Boa Viagem"),
+        distance_km=dist,
+        genre=row.get("genre", "Geral")
+    )
+
+
 @router.get("/public", response_model=List[BookListingPublic])
 def get_public_feed(
     cep: Optional[str] = None,
@@ -81,28 +104,14 @@ def get_public_feed(
     """
     Retorna o feed público de livros para visitantes sem exigir JWT.
     """
+    origin_lat = lat or DEFAULT_LAT
+    origin_lng = lng or DEFAULT_LNG
+
     try:
         query = supabase.table("listings").select("*")
         response = query.execute()
-        if response.data and len(response.data) > 0:
-            books = []
-            for item in response.data:
-                item_lat = item.get("lat", -8.117)
-                item_lng = item.get("lng", -34.895)
-                dist = calculate_haversine_distance(lat or -8.117, lng or -34.895, item_lat, item_lng)
-                books.append(BookListingPublic(
-                    id=str(item.get("id")),
-                    title=item.get("title", "Obra sem título"),
-                    author=item.get("author", "Autor Desconhecido"),
-                    cover=item.get("cover_url", "https://covers.openlibrary.org/b/id/153253-M.jpg"),
-                    modality=item.get("modality", "TROCA"),
-                    price=item.get("price"),
-                    condition=item.get("condition", "Excelente"),
-                    neighborhood=item.get("neighborhood", "Boa Viagem"),
-                    distance_km=dist,
-                    genre=item.get("genre", "Geral")
-                ))
-            return books
+        if response.data:
+            return [_map_row_to_public_listing(row, origin_lat, origin_lng) for row in response.data]
     except Exception:
         pass
 
@@ -143,10 +152,10 @@ def get_home_feed(current_user: dict = Depends(get_current_user)):
     user_id = current_user["id"]
     try:
         res = supabase.table("listings").select("*").neq("user_id", user_id).execute()
-        if res.data and len(res.data) > 0:
+        if res.data:
             all_items = []
             for item in res.data:
-                dist = calculate_haversine_distance(-8.117, -34.895, item.get("lat", -8.117), item.get("lng", -34.895))
+                dist = calculate_haversine_distance(DEFAULT_LAT, DEFAULT_LNG, item.get("lat", DEFAULT_LAT), item.get("lng", DEFAULT_LNG))
                 item["distance_km"] = dist
                 all_items.append(ListingResponse(**item))
             

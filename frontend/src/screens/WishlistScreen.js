@@ -12,18 +12,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import api from '../services/api';
-
-const COLORS = {
-  primary: '#1E88E5',
-  secondary: '#43A047',
-  accent: '#FBC02D',
-  background: '#F5F5F6',
-  surface: '#FFFFFF',
-  text: '#212121',
-  subtitle: '#666666',
-  border: '#E0E0E0',
-  danger: '#E53935'
-};
+import { COLORS } from '../constants/theme';
 
 export default function WishlistScreen({ navigation }) {
   const [items, setItems] = useState([]);
@@ -91,28 +80,32 @@ export default function WishlistScreen({ navigation }) {
     }
   };
 
-  const renderItem = ({ item }) => (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <View style={styles.iconContainer}>
-          <Icon name="bookmark-outline" size={24} color={COLORS.primary} />
+  const renderItem = ({ item }) => {
+    const formattedMaxPrice = item.max_price
+      ? `Preço máx: R$ ${Number(item.max_price).toFixed(2)}`
+      : 'Aceita Troca / Qualquer Preço';
+
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <View style={styles.iconContainer}>
+            <Icon name="bookmark-outline" size={24} color={COLORS.primary} />
+          </View>
+          <View style={styles.cardInfo}>
+            <Text style={styles.itemTitle}>{item.book_title}</Text>
+            {item.author ? <Text style={styles.itemSubtitle}>{`Autor: ${item.author}`}</Text> : null}
+            {item.genre ? <Text style={styles.itemBadge}>{item.genre}</Text> : null}
+            <Text style={item.max_price ? styles.priceTag : styles.priceTagFlex}>
+              {formattedMaxPrice}
+            </Text>
+          </View>
+          <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDeleteItem(item.id)}>
+            <Icon name="trash-can-outline" size={22} color={COLORS.danger} />
+          </TouchableOpacity>
         </View>
-        <View style={styles.cardInfo}>
-          <Text style={styles.itemTitle}>{item.book_title}</Text>
-          {item.author ? <Text style={styles.itemSubtitle}>Autor: {item.author}</Text> : null}
-          {item.genre ? <Text style={styles.itemBadge}>{item.genre}</Text> : null}
-          {item.max_price ? (
-            <Text style={styles.priceTag}>Preço máx: R$ {Number(item.max_price).toFixed(2)}</Text>
-          ) : (
-            <Text style={styles.priceTagFlex}>Aceita Troca / Qualquer Preço</Text>
-          )}
-        </View>
-        <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDeleteItem(item.id)}>
-          <Icon name="trash-can-outline" size={22} color={COLORS.danger} />
-        </TouchableOpacity>
       </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -250,7 +243,7 @@ const styles = StyleSheet.create({
   introBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E3F2FD',
+    backgroundColor: COLORS.primaryLight,
     margin: 16,
     padding: 14,
     borderRadius: 12,
@@ -319,7 +312,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: '#E3F2FD',
+    backgroundColor: COLORS.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12

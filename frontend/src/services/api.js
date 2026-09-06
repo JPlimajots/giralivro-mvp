@@ -3,7 +3,6 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ENV_API_URL = process.env.EXPO_PUBLIC_API_URL;
-// Na Web, o browser acessa via localhost. No celular/Android, usa o IP da máquina.
 const DEFAULT_URL = Platform.OS === 'web' ? 'http://localhost:8000' : 'http://192.168.0.172:8000';
 const API_BASE_URL = ENV_API_URL || DEFAULT_URL;
 
@@ -24,9 +23,11 @@ api.interceptors.request.use(
         config.headers.Authorization = `Bearer ${token}`;
       }
     } catch (e) {
-      console.warn('Erro ao carregar token do AsyncStorage', e);
+      console.warn('Erro ao carregar token do AsyncStorage:', e);
     }
     return config;
   },
   (error) => Promise.reject(error)
 );
+
+export default api;

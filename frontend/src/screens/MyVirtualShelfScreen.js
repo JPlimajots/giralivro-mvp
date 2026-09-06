@@ -10,8 +10,9 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { api } from '../services/api';
+import { COLORS } from '../constants/theme';
 
 export default function MyVirtualShelfScreen({ navigation }) {
   const [listings, setListings] = useState([]);
@@ -81,11 +82,11 @@ export default function MyVirtualShelfScreen({ navigation }) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.navigate('HomeLogado')}>
-          <Feather name="arrow-left" size={24} color="#333" />
+          <Feather name="arrow-left" size={24} color={COLORS.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Sua Estante Virtual</Text>
         <TouchableOpacity onPress={() => navigation.navigate('AddBookPhoto')}>
-          <Feather name="plus-circle" size={24} color="#1E88E5" />
+          <Feather name="plus-circle" size={24} color={COLORS.primary} />
         </TouchableOpacity>
       </View>
 
@@ -93,47 +94,50 @@ export default function MyVirtualShelfScreen({ navigation }) {
         <Text style={styles.sectionTitle}>Seus Anúncios Ativos</Text>
 
         {loading ? (
-          <ActivityIndicator size="large" color="#1E88E5" style={{ marginVertical: 24 }} />
+          <ActivityIndicator size="large" color={COLORS.primary} style={{ marginVertical: 24 }} />
         ) : (
           <View style={styles.listingsList}>
-            {listings.map((item) => (
-              <View key={item.id} style={styles.card}>
-                <Image source={{ uri: item.cover_url }} style={styles.cover} resizeMode="cover" />
+            {listings.map((item) => {
+              const formattedModality = `${item.modality}${item.price ? ` • R$ ${item.price.toFixed(2)}` : ''}`;
+              const formattedLocation = `📍 ${item.neighborhood || 'Boa Viagem'}`;
 
-                <View style={styles.cardBody}>
-                  <View style={styles.statusBadge}>
-                    <Text style={styles.statusBadgeText}>{item.status || 'Publicado'}</Text>
-                  </View>
+              return (
+                <View key={item.id} style={styles.card}>
+                  <Image source={{ uri: item.cover_url }} style={styles.cover} resizeMode="cover" />
 
-                  <Text style={styles.bookTitle} numberOfLines={1}>
-                    {item.title}
-                  </Text>
-                  <Text style={styles.bookAuthor}>{item.author}</Text>
+                  <View style={styles.cardBody}>
+                    <View style={styles.statusBadge}>
+                      <Text style={styles.statusBadgeText}>{item.status || 'Publicado'}</Text>
+                    </View>
 
-                  <Text style={styles.modalityText}>
-                    {item.modality} {item.price ? `• R$ ${item.price.toFixed(2)}` : ''}
-                  </Text>
-                  <Text style={styles.locationText}>📍 {item.neighborhood || 'Boa Viagem'}</Text>
+                    <Text style={styles.bookTitle} numberOfLines={1}>
+                      {item.title}
+                    </Text>
+                    <Text style={styles.bookAuthor}>{item.author}</Text>
 
-                  {/* Ações do Anúncio */}
-                  <View style={styles.actionsRow}>
-                    <TouchableOpacity
-                      style={styles.actionBtnSecondary}
-                      onPress={() => handleMarkAsTraded(item.id)}
-                    >
-                      <Text style={styles.actionBtnSecondaryText}>Negociado</Text>
-                    </TouchableOpacity>
+                    <Text style={styles.modalityText}>{formattedModality}</Text>
+                    <Text style={styles.locationText}>{formattedLocation}</Text>
 
-                    <TouchableOpacity
-                      style={styles.actionBtnDanger}
-                      onPress={() => handleDeleteListing(item.id)}
-                    >
-                      <Feather name="trash-2" size={16} color="#D32F2F" />
-                    </TouchableOpacity>
+                    {/* Ações do Anúncio */}
+                    <View style={styles.actionsRow}>
+                      <TouchableOpacity
+                        style={styles.actionBtnSecondary}
+                        onPress={() => handleMarkAsTraded(item.id)}
+                      >
+                        <Text style={styles.actionBtnSecondaryText}>Negociado</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.actionBtnDanger}
+                        onPress={() => handleDeleteListing(item.id)}
+                      >
+                        <Feather name="trash-2" size={16} color={COLORS.danger} />
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
 
             {listings.length === 0 && (
               <Text style={styles.emptyText}>Você ainda não possui livros cadastrados.</Text>
@@ -178,7 +182,7 @@ export default function MyVirtualShelfScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F6',
+    backgroundColor: COLORS.background,
   },
   header: {
     flexDirection: 'row',
@@ -190,7 +194,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 18,
-    color: '#333',
+    color: COLORS.text,
   },
   content: {
     paddingHorizontal: 24,
@@ -199,7 +203,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: 'Nunito_700Bold',
     fontSize: 20,
-    color: '#333',
+    color: COLORS.text,
     marginBottom: 16,
   },
   listingsList: {
@@ -208,25 +212,25 @@ const styles = StyleSheet.create({
   },
   card: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.surface,
     borderRadius: 12,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: COLORS.border,
   },
   cover: {
     width: 75,
     height: 105,
     borderRadius: 8,
     marginRight: 14,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: COLORS.border,
   },
   cardBody: {
     flex: 1,
   },
   statusBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#E8F5E9',
+    backgroundColor: COLORS.secondaryLight,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 4,
@@ -235,29 +239,29 @@ const styles = StyleSheet.create({
   statusBadgeText: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 11,
-    color: '#43A047',
+    color: COLORS.secondary,
   },
   bookTitle: {
     fontFamily: 'Nunito_700Bold',
     fontSize: 16,
-    color: '#333',
+    color: COLORS.text,
   },
   bookAuthor: {
     fontFamily: 'Inter_400Regular',
     fontSize: 13,
-    color: '#666',
+    color: COLORS.subtitle,
     marginBottom: 4,
   },
   modalityText: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 12,
-    color: '#1E88E5',
+    color: COLORS.primary,
     marginBottom: 2,
   },
   locationText: {
     fontFamily: 'Inter_400Regular',
     fontSize: 12,
-    color: '#9E9E9E',
+    color: COLORS.disabled,
     marginBottom: 10,
   },
   actionsRow: {
@@ -266,7 +270,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   actionBtnSecondary: {
-    backgroundColor: '#F5F5F6',
+    backgroundColor: COLORS.background,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
@@ -274,7 +278,7 @@ const styles = StyleSheet.create({
   actionBtnSecondaryText: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 12,
-    color: '#1E88E5',
+    color: COLORS.primary,
   },
   actionBtnDanger: {
     padding: 6,
@@ -282,11 +286,11 @@ const styles = StyleSheet.create({
   emptyText: {
     textAlign: 'center',
     fontFamily: 'Inter_400Regular',
-    color: '#9E9E9E',
+    color: COLORS.disabled,
     marginVertical: 20,
   },
   incentiveCard: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: COLORS.primaryLight,
     borderRadius: 12,
     padding: 20,
     marginBottom: 24,
@@ -294,7 +298,7 @@ const styles = StyleSheet.create({
   incentiveTitle: {
     fontFamily: 'Nunito_700Bold',
     fontSize: 18,
-    color: '#1E88E5',
+    color: COLORS.primary,
     marginBottom: 4,
   },
   incentiveSub: {
@@ -305,7 +309,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   publishBtn: {
-    backgroundColor: '#1E88E5',
+    backgroundColor: COLORS.primary,
     height: 44,
     borderRadius: 22,
     justifyContent: 'center',
@@ -317,16 +321,16 @@ const styles = StyleSheet.create({
     color: '#FFF',
   },
   impactBox: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.surface,
     borderRadius: 12,
     padding: 18,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: COLORS.border,
   },
   impactHeader: {
     fontFamily: 'Nunito_700Bold',
     fontSize: 16,
-    color: '#333',
+    color: COLORS.text,
     marginBottom: 12,
   },
   impactMetrics: {
@@ -340,12 +344,12 @@ const styles = StyleSheet.create({
   metricVal: {
     fontFamily: 'Nunito_700Bold',
     fontSize: 18,
-    color: '#43A047',
+    color: COLORS.secondary,
   },
   metricTxt: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 10,
-    color: '#9E9E9E',
+    color: COLORS.disabled,
     marginTop: 2,
   },
 });
