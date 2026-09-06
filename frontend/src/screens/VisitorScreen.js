@@ -1,44 +1,93 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  TextInput,
+  Image,
+  ActivityIndicator,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
+import { api } from '../services/api';
 
-export default function VisitorScreen({ navigation }) {
+export default function VisitorScreen({ navigation, route }) {
+  const { selectedGenres = [] } = route.params || {};
+
   const [searchText, setSearchText] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('todos');
-  const [interests, setInterests] = useState([]);
+  const [books, setBooks] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const filters = [
     { id: 'todos', label: 'Todos' },
-    { id: 'ficcao', label: 'Ficção' },
-    { id: 'romance', label: 'Romance' },
-    { id: 'fantasia', label: 'Fantasia' },
+    { id: 'Ficção', label: 'Ficção' },
+    { id: 'Romance', label: 'Romance' },
+    { id: 'Fantasia', label: 'Fantasia' },
   ];
 
-  // Dados de exemplo — substituir por uma chamada à API do backend (ex: GET /livros/vitrine)
-  const books = [
-    {
-      id: '1',
-      title: '1984',
-      author: 'George Orwell',
-      year: 1949,
-      category: 'ficcao',
-      coverUrl: 'https://covers.openlibrary.org/b/isbn/9780451524935-M.jpg',
-      available: true,
-    },
-    {
-      id: '2',
-      title: 'Dom Casmurro',
-      author: 'Machado de Assis',
-      year: 1899,
-      category: 'romance',
-      coverUrl: 'https://covers.openlibrary.org/b/isbn/9788535914785-M.jpg',
-      available: true,
-    },
-  ];
+  const fetchPublicFeed = async () => {
+    setLoading(true);
+    try {
+      const genresParam = selectedGenres.length > 0 ? selectedGenres.join(',') : undefined;
+      const response = await api.get('/feed/public', {
+        params: { genres: genresParam },
+      });
+      setBooks(response.data);
+    } catch (error) {
+      console.log('Error fetching public feed:', error);
+      // Mock de segurança caso API esteja offline
+      setBooks([
+        {
+          id: 'b1',
+          title: '1984',
+          author: 'George Orwell',
+          cover: 'https://covers.openlibrary.org/b/id/153253-M.jpg',
+          modality: 'TROCA',
+          condition: 'Excelente',
+          neighborhood: 'Boa Viagem',
+          distance_km: 1.2,
+          genre: 'Ficção',
+        },
+        {
+          id: 'b2',
+          title: 'O Hobbit',
+          author: 'J.R.R. Tolkien',
+          cover: 'https://covers.openlibrary.org/b/id/8406786-M.jpg',
+          modality: 'TROCA',
+          condition: 'Bom',
+          neighborhood: 'Boa Viagem',
+          distance_km: 1.5,
+          genre: 'Fantasia',
+        },
+        {
+          id: 'b3',
+          title: 'Duna',
+          author: 'Frank Herbert',
+          cover: 'https://covers.openlibrary.org/b/id/10523450-M.jpg',
+          modality: 'VENDA OU TROCA',
+          price: 80.0,
+          condition: 'Novo',
+          neighborhood: 'Pina',
+          distance_km: 2.5,
+          genre: 'Sci-Fi',
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPublicFeed();
+  }, []);
 
   const filteredBooks = books.filter((book) => {
-    const matchesFilter = selectedFilter === 'todos' || book.category === selectedFilter;
+    const matchesFilter =
+      selectedFilter === 'todos' ||
+      book.genre?.toLowerCase() === selectedFilter.toLowerCase();
     const term = searchText.trim().toLowerCase();
     const matchesSearch =
       !term ||
@@ -47,41 +96,43 @@ export default function VisitorScreen({ navigation }) {
     return matchesFilter && matchesSearch;
   });
 
-  const handleToggleInterest = (id) => {
-    if (interests.includes(id)) {
-      setInterests(interests.filter((item) => item !== id));
-    } else {
-      setInterests([...interests, id]);
-    }
-  };
-
-  const isButtonEnabled = interests.length > 0;
-
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header com Voltar e Progresso */}
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Feather name="arrow-left" size={24} color="#333" />
         </TouchableOpacity>
 
-        <View style={styles.progressContainer}>
-          <View style={styles.progressInactive} />
-          <View style={styles.progressActive} />
-          <View style={styles.progressInactive} />
-        </View>
+        <Text style={styles.headerTitle}>GiraLivro</Text>
 
-        <View style={{ width: 24 }} />
+        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+          <Text style={styles.loginHeaderBtn}>Entrar</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.eyebrow}>VITRINE DO VISITANTE</Text>
-        <Text style={styles.title}>O que você quer ler agora?</Text>
-        <Text style={styles.subtitle}>
-          Encontre sua próxima aventura. Busque pelo nome da obra, autor ou número do ISBN.
-        </Text>
+        {/* Banner de Barreira de Login (Conforme Protótipo pág. 14) */}
+        <View style={styles.barrierBanner}>
+          <View style={styles.barrierTextContainer}>
+            <Text style={styles.barrierEyebrow}>VITRINE DE VISITANTE</Text>
+            <Text style={styles.barrierTitle}>Descubra sua próxima história</Text>
+            <Text style={styles.barrierLocation}>📍 Buscando perto de Boa Viagem</Text>
+            <Text style={styles.barrierSubtitle}>
+              Crie uma conta grátis para reservar livros, negociar e falar com outros leitores.
+            </Text>
+          </View>
 
-        {/* Busca */}
+          <TouchableOpacity
+            style={styles.barrierButton}
+            onPress={() => navigation.navigate('SignUp', { onboardingGenres: selectedGenres })}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.barrierButtonText}>Criar conta agora</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Campo de Busca */}
         <View style={styles.searchContainer}>
           <Feather name="search" size={18} color="#9E9E9E" />
           <TextInput
@@ -93,7 +144,7 @@ export default function VisitorScreen({ navigation }) {
           />
         </View>
 
-        {/* Filtros */}
+        {/* Filtros por Categoria */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersRow}>
           {filters.map((filter) => {
             const isSelected = selectedFilter === filter.id;
@@ -112,65 +163,54 @@ export default function VisitorScreen({ navigation }) {
           })}
         </ScrollView>
 
-        {/* Lista de Livros */}
-        <View style={styles.booksList}>
-          {filteredBooks.map((book) => {
-            const isSelected = interests.includes(book.id);
-            return (
+        <Text style={styles.sectionTitle}>Recomendados para você</Text>
+
+        {loading ? (
+          <ActivityIndicator size="large" color="#1E88E5" style={{ marginVertical: 24 }} />
+        ) : (
+          <View style={styles.booksList}>
+            {filteredBooks.map((book) => (
               <View key={book.id} style={styles.bookCard}>
-                <Image source={{ uri: book.coverUrl }} style={styles.bookCover} />
+                <Image source={{ uri: book.cover }} style={styles.bookCover} resizeMode="cover" />
 
                 <View style={styles.bookInfo}>
-                  <Text style={styles.bookTitle} numberOfLines={2}>
+                  <Text style={styles.bookTitle} numberOfLines={1}>
                     {book.title}
                   </Text>
-                  <Text style={styles.bookAuthor}>
-                    {book.author} • {book.year}
+                  <Text style={styles.bookAuthor}>{book.author}</Text>
+                  <Text style={styles.bookLocation}>
+                    {book.neighborhood} • {book.distance_km}km
                   </Text>
 
-                  {book.available && (
-                    <View style={styles.badge}>
-                      <Text style={styles.badgeText}>Disponível para troca</Text>
+                  <View style={styles.badgeRow}>
+                    <View style={styles.modalityBadge}>
+                      <Text style={styles.modalityText}>
+                        {book.modality} {book.price ? `R$ ${book.price}` : ''}
+                      </Text>
                     </View>
-                  )}
+                    <View style={styles.conditionBadge}>
+                      <Text style={styles.conditionText}>{book.condition}</Text>
+                    </View>
+                  </View>
                 </View>
 
+                {/* Botão Ver Detalhes (Aciona Login se não logado) */}
                 <TouchableOpacity
-                  style={[styles.addButton, isSelected && styles.addButtonSelected]}
+                  style={styles.detailsButton}
+                  onPress={() => navigation.navigate('Login')}
                   activeOpacity={0.8}
-                  onPress={() => handleToggleInterest(book.id)}
                 >
-                  <Feather name={isSelected ? 'check' : 'plus'} size={18} color="#FFFFFF" />
+                  <Text style={styles.detailsButtonText}>Ver Detalhes</Text>
                 </TouchableOpacity>
               </View>
-            );
-          })}
+            ))}
 
-          {filteredBooks.length === 0 && (
-            <Text style={styles.emptyText}>Nenhum livro encontrado para essa busca.</Text>
-          )}
-        </View>
-      </ScrollView>
-
-      {/* Footer */}
-      <View style={styles.footer}>
-        <View style={styles.footerRow}>
-          <Text style={styles.footerLabel}>Interesses selecionados</Text>
-          <View style={styles.counterBadge}>
-            <Text style={styles.counterText}>{interests.length}</Text>
+            {filteredBooks.length === 0 && (
+              <Text style={styles.emptyText}>Nenhum livro encontrado para essa busca.</Text>
+            )}
           </View>
-        </View>
-
-        <TouchableOpacity
-          style={[styles.primaryButton, isButtonEnabled ? styles.buttonEnabled : styles.buttonDisabled]}
-          disabled={!isButtonEnabled}
-           onPress={() => navigation.navigate('LocationInterest')}
-        >
-          <Text style={[styles.buttonText, isButtonEnabled ? styles.buttonTextEnabled : styles.buttonTextDisabled]}>
-            Continuar
-          </Text>
-        </TouchableOpacity>
-      </View>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -182,57 +222,78 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 16,
+    paddingVertical: 14,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
   },
   backButton: {
     padding: 4,
-    marginLeft: -4,
   },
-  progressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  headerTitle: {
+    fontFamily: 'Nunito_700Bold',
+    fontSize: 20,
+    color: '#1E88E5',
   },
-  progressActive: {
-    width: 24,
-    height: 4,
-    backgroundColor: '#1E88E5',
-    borderRadius: 2,
-    marginRight: 6,
-  },
-  progressInactive: {
-    width: 6,
-    height: 4,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 2,
-    marginRight: 6,
+  loginHeaderBtn: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 15,
+    color: '#1E88E5',
   },
   scrollContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 16,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+    paddingTop: 16,
   },
-  eyebrow: {
+  barrierBanner: {
+    backgroundColor: '#1E88E5',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    elevation: 3,
+  },
+  barrierTextContainer: {
+    marginBottom: 16,
+  },
+  barrierEyebrow: {
     fontFamily: 'Inter_600SemiBold',
-    fontSize: 12,
-    color: '#9E9E9E',
-    letterSpacing: 0.5,
-    marginBottom: 10,
+    fontSize: 11,
+    color: '#BBDEFB',
+    letterSpacing: 1,
+    marginBottom: 4,
   },
-  title: {
+  barrierTitle: {
     fontFamily: 'Nunito_700Bold',
     fontSize: 22,
-    color: '#333333',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  barrierLocation: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+    color: '#E3F2FD',
     marginBottom: 8,
   },
-  subtitle: {
+  barrierSubtitle: {
     fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    color: '#F5F5F6',
+    lineHeight: 20,
+  },
+  barrierButton: {
+    backgroundColor: '#FFFFFF',
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  barrierButtonText: {
+    fontFamily: 'Inter_600SemiBold',
     fontSize: 15,
-    color: '#4F4F4F',
-    lineHeight: 22,
-    marginBottom: 20,
+    color: '#1E88E5',
   },
   searchContainer: {
     flexDirection: 'row',
@@ -240,68 +301,75 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E0E0E0',
-    borderRadius: 10,
+    borderRadius: 8,
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 14,
+    height: 48,
+    marginBottom: 16,
   },
   searchInput: {
     flex: 1,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 15,
-    color: '#333333',
     marginLeft: 10,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    color: '#333333',
   },
   filtersRow: {
     flexDirection: 'row',
     marginBottom: 20,
   },
   filterChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 9,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E0E0E0',
-    marginRight: 8,
+    marginRight: 10,
   },
   filterChipSelected: {
     backgroundColor: '#1E88E5',
     borderColor: '#1E88E5',
   },
   filterChipText: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 13,
-    color: '#4F4F4F',
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    color: '#666666',
   },
   filterChipTextSelected: {
     color: '#FFFFFF',
+    fontFamily: 'Inter_600SemiBold',
+  },
+  sectionTitle: {
+    fontFamily: 'Nunito_700Bold',
+    fontSize: 18,
+    color: '#333333',
+    marginBottom: 14,
   },
   booksList: {
-    gap: 12,
+    gap: 14,
   },
   bookCard: {
     flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    alignItems: 'center',
   },
   bookCover: {
-    width: 56,
-    height: 76,
+    width: 60,
+    height: 85,
     borderRadius: 6,
-    backgroundColor: '#F0F0F0',
+    marginRight: 14,
+    backgroundColor: '#E0E0E0',
   },
   bookInfo: {
     flex: 1,
-    marginLeft: 12,
-    marginRight: 10,
   },
   bookTitle: {
     fontFamily: 'Nunito_700Bold',
-    fontSize: 15,
+    fontSize: 16,
     color: '#333333',
     marginBottom: 2,
   },
@@ -309,91 +377,56 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 13,
     color: '#666666',
-    marginBottom: 6,
+    marginBottom: 2,
   },
-  badge: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#E6F4EA',
-    borderRadius: 6,
+  bookLocation: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    color: '#9E9E9E',
+    marginBottom: 8,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  modalityBadge: {
+    backgroundColor: '#E3F2FD',
     paddingHorizontal: 8,
     paddingVertical: 3,
+    borderRadius: 4,
   },
-  badgeText: {
+  modalityText: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 11,
-    color: '#2E7D32',
+    color: '#1E88E5',
   },
-  addButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#1E88E5',
-    justifyContent: 'center',
-    alignItems: 'center',
+  conditionBadge: {
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
   },
-  addButtonSelected: {
-    backgroundColor: '#43A047',
-  },
-  emptyText: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 14,
-    color: '#828282',
-    textAlign: 'center',
-    marginTop: 24,
-  },
-  footer: {
-    paddingHorizontal: 24,
-    paddingBottom: 24,
-    paddingTop: 12,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-  },
-  footerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  footerLabel: {
+  conditionText: {
     fontFamily: 'Inter_600SemiBold',
-    fontSize: 15,
-    color: '#333333',
+    fontSize: 11,
+    color: '#43A047',
   },
-  counterBadge: {
-    minWidth: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#E3F2FD',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 6,
+  detailsButton: {
+    backgroundColor: '#F5F5F6',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    marginLeft: 8,
   },
-  counterText: {
+  detailsButtonText: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 12,
     color: '#1E88E5',
   },
-  primaryButton: {
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  buttonEnabled: {
-    backgroundColor: '#005BB5',
-  },
-  buttonDisabled: {
-    backgroundColor: '#E0E0E0',
-  },
-  buttonText: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 16,
-  },
-  buttonTextEnabled: {
-    color: '#FFFFFF',
-  },
-  buttonTextDisabled: {
+  emptyText: {
+    textAlign: 'center',
+    fontFamily: 'Inter_400Regular',
     color: '#9E9E9E',
+    marginVertical: 20,
   },
 });

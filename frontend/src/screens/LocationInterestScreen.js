@@ -131,7 +131,7 @@ export default function LocationInterestScreen({ navigation }) {
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.primaryButton}
-          //onPress={() => navigation.navigate('HomeScreen')}
+          onPress={() => navigation.navigate('VisitorScreen', { selectedGenres, cep })}
         >
           <Text style={styles.primaryButtonText}>
             Ir para o Painel
