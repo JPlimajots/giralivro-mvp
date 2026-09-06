@@ -1,0 +1,20 @@
+# Environment variables
+.env
+.env*.local
+
+# Node modules & build artifacts
+node_modules/
+dist/
+.expo/
+web-build/
+
+# Python Virtual Environments & Caches
+backend/venv/
+__pycache__/
+*.pyc
+
+# OS & IDE junk
+.DS_Store
+.vscode/
+.idea/
+*.log
