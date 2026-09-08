@@ -5,8 +5,6 @@ import WelcomeScreen from './src/screens/WelcomeScreen';
 import ObjectiveScreen from './src/screens/ObjectiveScreen';
 import VisitorScreen from './src/screens/VisitorScreen';
 import LocationInterestScreen from './src/screens/LocationInterestScreen';
-
-
 const Stack = createNativeStackNavigator();
 
 export default function App() {
