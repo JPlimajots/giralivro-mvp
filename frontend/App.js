@@ -3,8 +3,8 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import ObjectiveScreen from './src/screens/ObjectiveScreen';
-import VisitorShowcaseScreen from './src/screens/VisitorShowcaseScreen';
-
+import VisitorScreen from './src/screens/VisitorScreen';
+import LocationInterestScreen from './src/screens/LocationInterestScreen';
 const Stack = createNativeStackNavigator();
 
 export default function App() {
@@ -13,7 +13,8 @@ export default function App() {
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
         <Stack.Screen name="ObjectiveScreen" component={ObjectiveScreen} />
-        <Stack.Screen name="VisitorShowcaseScreen" component={VisitorShowcaseScreen} />
+        <Stack.Screen name="VisitorScreen" component={VisitorScreen} />
+        <Stack.Screen name="LocationInterest" component={LocationInterestScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
