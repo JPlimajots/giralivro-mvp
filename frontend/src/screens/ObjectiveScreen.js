@@ -76,11 +76,11 @@ export default function ObjectiveScreen({ navigation }) {
               
               <View style={styles.textContainer}>
                 <Text style={styles.cardTitle}>{option.title}</Text>
-                {option.subtitle && <Text style={styles.cardSubtitle}>{option.subtitle}</Text>}
+                {option.subtitle ? <Text style={styles.cardSubtitle}>{option.subtitle}</Text> : null}
               </View>
 
               <View style={[styles.radioOuter, isSelected && styles.radioOuterSelected]}>
-                {isSelected && <View style={styles.radioInner} />}
+                {isSelected ? <View style={styles.radioInner} /> : null}
               </View>
             </TouchableOpacity>
           );
@@ -101,7 +101,7 @@ export default function ObjectiveScreen({ navigation }) {
           </View>
 
           <View style={[styles.radioOuter, isAllSelected && styles.radioOuterSelected]}>
-            {isAllSelected && <View style={styles.radioInner} />}
+            {isAllSelected ? <View style={styles.radioInner} /> : null}
           </View>
         </TouchableOpacity>
       </ScrollView>
@@ -111,7 +111,7 @@ export default function ObjectiveScreen({ navigation }) {
         <TouchableOpacity 
           style={[styles.primaryButton, isButtonEnabled ? styles.buttonEnabled : styles.buttonDisabled]}
           disabled={!isButtonEnabled}
-          onPress={() => navigation.navigate('VisitorScreen')}
+          onPress={() => navigation.navigate('VisitorShowcaseScreen', { selectedObjectives: selectedOptions })}
         >
           <Text style={[styles.buttonText, isButtonEnabled ? styles.buttonTextEnabled : styles.buttonTextDisabled]}>
             Continuar
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonEnabled: {
-    backgroundColor: '#005BB5', // Azul um pouco mais escuro para o botão ativo 
+    backgroundColor: '#005BB5',
   },
   buttonDisabled: {
     backgroundColor: '#E0E0E0',

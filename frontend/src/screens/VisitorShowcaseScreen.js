@@ -38,19 +38,19 @@ export default function VisitorShowcaseScreen({ route, navigation }) {
 
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('Todos');
-    const [selectedBooks, setSlectedBooks] = useState([]);
+    const [selectedBooks, setSelectedBooks] = useState([]);
 
     const toggleBook = (id) => {
         if (selectedBooks.includes(id)) {
-            setSlectedBooks(selectedBooks.filter(bookId => bookId !== id));
+            setSelectedBooks(selectedBooks.filter(bookId => bookId !== id));
         } else {
-            setSlectedBooks([...selectedBooks, id]);
+            setSelectedBooks([...selectedBooks, id]);
         }
     };
 
     const isButtonEnabled = selectedBooks.length > 0;
 
-return (
+    return (
     <SafeAreaView style={styles.container}>
       {/* Header com Voltar e Progresso */}
       <View style={styles.header}>
@@ -84,8 +84,13 @@ return (
           />
         </View>
 
-        {/* Chips de Categoria */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsContainer}>
+        {/* Chips de Categoria sem no de espaço solto */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.chipsContainer}
+          contentContainerStyle={styles.chipsScrollContent}
+        >
           {CATEGORIES.map((category) => (
             <TouchableOpacity
               key={category}
@@ -98,20 +103,21 @@ return (
               </Text>
             </TouchableOpacity>
           ))}
-          <View style={{ width: 24 }} /> {/* Espaçamento final */}
         </ScrollView>
 
         {/* Lista de Livros */}
         <View style={styles.listContainer}>
           {MOCK_BOOKS.map((book) => {
             const isSelected = selectedBooks.includes(book.id);
+            const authorYearText = `${book.author} • ${book.year}`;
+
             return (
               <View key={book.id} style={styles.bookCard}>
                 <Image source={{ uri: book.cover }} style={styles.bookCover} resizeMode="cover" />
                 
                 <View style={styles.bookInfo}>
                   <Text style={styles.bookTitle}>{book.title}</Text>
-                  <Text style={styles.bookAuthor}>{book.author} • {book.year}</Text>
+                  <Text style={styles.bookAuthor}>{authorYearText}</Text>
                   
                   <View style={styles.statusBadge}>
                     <Text style={styles.statusText}>{book.status}</Text>
@@ -148,8 +154,7 @@ return (
 
         <TouchableOpacity 
           style={[styles.primaryButton, isButtonEnabled ? styles.buttonEnabled : styles.buttonDisabled]}
-          disabled={!isButtonEnabled}
-          // onPress={() => navigation.navigate('LocationScreen', { selectedObjectives, selectedBooks })} 
+          onPress={() => navigation.navigate('LocationInterest', { selectedObjectives, selectedBooks })}
         >
           <Text style={[styles.buttonText, isButtonEnabled ? styles.buttonTextEnabled : styles.buttonTextDisabled]}>
             Continuar
@@ -177,7 +182,6 @@ const styles = StyleSheet.create({
     padding: 4,
     marginLeft: -4,
   },
-  // Barra de progresso exata da imagem (ponto, traço, ponto, ponto)
   progressContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -248,15 +252,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     marginBottom: 24,
   },
+  chipsScrollContent: {
+    paddingRight: 24,
+  },
   chip: {
     backgroundColor: '#F5F5F6',
     borderWidth: 1,
     borderColor: '#E0E0E0',
     borderRadius: 20,
-    paddingVertical: 6,
+    paddingVertical: 8,
     paddingHorizontal: 16,
     marginRight: 8,
-    height: 32,
+    minHeight: 38,
+    alignItems: 'center',
     justifyContent: 'center',
   },
   chipSelected: {
@@ -267,6 +275,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 14,
     color: '#333333',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   chipTextSelected: {
     color: '#FFFFFF',
@@ -331,7 +341,7 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   actionButtonSelected: {
-    backgroundColor: '#43A047', // Verde Sustentável
+    backgroundColor: '#43A047',
   },
   footer: {
     backgroundColor: '#FFFFFF',
