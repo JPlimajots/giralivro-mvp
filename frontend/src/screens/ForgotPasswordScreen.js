@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -20,10 +21,12 @@ export default function ForgotPasswordScreen({ navigation }) {
     setStatusMessage(null);
 
     if (!email.trim()) {
+      const msg = 'Por favor, informe seu endereço de e-mail.';
       setStatusMessage({
         type: 'error',
-        text: 'Por favor, informe seu endereço de e-mail.',
+        text: msg,
       });
+      Alert.alert('Atenção', msg);
       return;
     }
 
@@ -34,15 +37,19 @@ export default function ForgotPasswordScreen({ navigation }) {
         console.log('Reset password notice:', error);
       }
 
+      const successMsg = 'Se este e-mail estiver cadastrado em nossa plataforma, você receberá um link com as instruções para redefinir sua senha em instantes. Verifique sua caixa de entrada e spam.';
       setStatusMessage({
         type: 'success',
-        text: 'Se este e-mail estiver cadastrado em nossa plataforma, você receberá um link com as instruções para redefinir sua senha em instantes. Verifique sua caixa de entrada e spam.',
+        text: successMsg,
       });
+      Alert.alert('Instruções Enviadas', successMsg);
     } catch (err) {
+      const successMsg = 'Se este e-mail estiver cadastrado em nossa plataforma, você receberá um link com as instruções para redefinir sua senha em instantes. Verifique sua caixa de entrada e spam.';
       setStatusMessage({
         type: 'success',
-        text: 'Se este e-mail estiver cadastrado em nossa plataforma, você receberá um link com as instruções para redefinir sua senha em instantes. Verifique sua caixa de entrada e spam.',
+        text: successMsg,
       });
+      Alert.alert('Instruções Enviadas', successMsg);
     } finally {
       setLoading(false);
     }

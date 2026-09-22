@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, FontAwesome } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../services/supabase';
 
 export default function LoginScreen({ navigation, route }) {
@@ -20,6 +21,7 @@ export default function LoginScreen({ navigation, route }) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const scrollViewRef = useRef(null);
 
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -37,7 +39,10 @@ export default function LoginScreen({ navigation, route }) {
     setErrorMessage('');
 
     if (!email.trim() || !password) {
-      setErrorMessage('Por favor, preencha seu e-mail e senha.');
+      const msg = 'Por favor, preencha seu e-mail e senha.';
+      setErrorMessage(msg);
+      Alert.alert('Atenção', msg);
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
       return;
     }
 
@@ -68,7 +73,10 @@ export default function LoginScreen({ navigation, route }) {
       }
     } catch (err) {
       console.log('Login error:', err);
-      setErrorMessage('E-mail ou senha incorretos. Por favor, verifique seus dados e tente novamente.');
+      const genericMsg = 'Não foi possível realizar o login. E-mail ou senha incorretos. Por favor, verifique seus dados e tente novamente.';
+      setErrorMessage(genericMsg);
+      Alert.alert('Erro de Login', genericMsg);
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
     } finally {
       setLoading(false);
     }
@@ -134,7 +142,7 @@ export default function LoginScreen({ navigation, route }) {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollViewRef} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.welcomeTitle}>BEM-VINDA(O) DE VOLTA</Text>
 
         {/* Banner de Erro Inline */}
@@ -156,7 +164,10 @@ export default function LoginScreen({ navigation, route }) {
             keyboardType="email-address"
             autoCapitalize="none"
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(txt) => {
+              setEmail(txt);
+              if (errorMessage) setErrorMessage('');
+            }}
           />
         </View>
 
@@ -170,7 +181,10 @@ export default function LoginScreen({ navigation, route }) {
             placeholderTextColor="#9E9E9E"
             secureTextEntry
             value={password}
-            onChangeText={setPassword}
+            onChangeText={(txt) => {
+              setPassword(txt);
+              if (errorMessage) setErrorMessage('');
+            }}
           />
         </View>
 
