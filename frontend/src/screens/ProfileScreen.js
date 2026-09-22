@@ -67,6 +67,7 @@ export default function ProfileScreen({ navigation }) {
         id: user.id,
         full_name: profileData?.full_name || user.user_metadata?.full_name || 'Usuário',
         email: profileData?.email || user.email,
+        whatsapp: profileData?.whatsapp || '',
         zip_code: zip,
         impact: {
           saved_books_count: realCount,
@@ -77,6 +78,7 @@ export default function ProfileScreen({ navigation }) {
       setProfile(userProfile);
       setEditName(userProfile.full_name);
       setEditCep(userProfile.zip_code);
+      setEditWhatsapp(userProfile.whatsapp);
     } catch (error) {
       console.log('Error fetching profile:', error);
     } finally {
@@ -87,6 +89,8 @@ export default function ProfileScreen({ navigation }) {
   useEffect(() => {
     fetchProfile();
   }, []);
+
+  const [editWhatsapp, setEditWhatsapp] = useState('');
 
   const handleUpdateProfile = async () => {
     if (!editName.trim()) {
@@ -99,12 +103,14 @@ export default function ProfileScreen({ navigation }) {
       const { data: { user } } = await supabase.auth.getUser();
 
       const cleanCep = editCep.trim();
+      const cleanWa = editWhatsapp.trim();
       const { error } = await supabase
         .from('profiles')
         .upsert({
           id: user.id,
           full_name: editName.trim(),
           zip_code: cleanCep,
+          whatsapp: cleanWa,
           email: user.email,
         });
       if (error) throw error;
@@ -181,6 +187,9 @@ export default function ProfileScreen({ navigation }) {
           <Text style={styles.eyebrow}>BEM-VINDA(O) DE VOLTA</Text>
           <Text style={styles.userName}>Olá, {firstName}</Text>
           <Text style={styles.userEmail}>{profile?.email}</Text>
+          {profile?.whatsapp ? (
+            <Text style={[styles.userCep, { marginTop: 4 }]}>📱 WhatsApp: {profile.whatsapp}</Text>
+          ) : null}
           <TouchableOpacity onPress={() => setEditModalVisible(true)}>
             {locationName ? (
               <Text style={styles.userCep}>📍 Região: {locationName}</Text>
@@ -275,6 +284,16 @@ export default function ProfileScreen({ navigation }) {
               value={editName}
               onChangeText={setEditName}
               placeholder="Seu nome"
+            />
+
+            <Text style={styles.inputLabel}>WhatsApp para Contato (Opcional)</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={editWhatsapp}
+              onChangeText={setEditWhatsapp}
+              placeholder="Ex: 81988887777"
+              placeholderTextColor="#BDBDBD"
+              keyboardType="phone-pad"
             />
 
             <Text style={styles.inputLabel}>CEP</Text>

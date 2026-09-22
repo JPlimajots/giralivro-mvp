@@ -17,6 +17,7 @@ import LocationInterestScreen from './src/screens/LocationInterestScreen';
 import VisitorScreen from './src/screens/VisitorScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import SignUpScreen from './src/screens/SignUpScreen';
+import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import SearchScreen from './src/screens/SearchScreen';
@@ -131,6 +132,7 @@ export default function App() {
             <Stack.Screen name="VisitorScreen" component={VisitorScreen} />
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="SignUp" component={SignUpScreen} />
+            <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
           </Stack.Group>
         ) : (
           // Usuário Logado

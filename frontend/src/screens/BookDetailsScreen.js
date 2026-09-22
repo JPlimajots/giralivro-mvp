@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,11 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  Share
+  Share,
+  Linking,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { supabase } from '../services/supabase';
 
 const COLORS = {
   primary: '#1E88E5',
@@ -25,6 +27,26 @@ const COLORS = {
 export default function BookDetailsScreen({ route, navigation }) {
   const listing = route.params?.listing || route.params?.book;
   const [favorite, setFavorite] = useState(false);
+  const [seller, setSeller] = useState(null);
+
+  useEffect(() => {
+    const fetchSellerInfo = async () => {
+      if (listing?.user_id) {
+        try {
+          const { data } = await supabase
+            .from('profiles')
+            .select('full_name, whatsapp, zip_code')
+            .eq('id', listing.user_id)
+            .single();
+
+          if (data) setSeller(data);
+        } catch (e) {
+          console.log('Error fetching seller info:', e);
+        }
+      }
+    };
+    fetchSellerInfo();
+  }, [listing]);
 
   if (!listing) {
     return (
@@ -40,34 +62,52 @@ export default function BookDetailsScreen({ route, navigation }) {
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `Confira este livro no GiraLivro: "${listing.title}" de ${listing.author} em ${listing.city || 'Recife'}!`
+        message: `Confira este livro no GiraLivro: "${listing.title || listing.books?.title}" de ${listing.author || listing.books?.author}!`
       });
     } catch (error) {
       console.log('Erro ao compartilhar:', error);
     }
   };
 
-  const handleStartChat = () => {
-    Alert.alert(
-      'Iniciar Negociação',
-      `Envie uma mensagem para saber como adquirir ou trocar "${listing.title}". (Recurso de Chat em breve na versão Web/Sockets!)`,
-      [{ text: 'Entendido', style: 'default' }]
-    );
+  const handleOpenWhatsapp = () => {
+    const phone = seller?.whatsapp || listing.whatsapp;
+    if (!phone) {
+      Alert.alert(
+        'WhatsApp Não Cadastrado',
+        'O anunciante não cadastrou um número de WhatsApp. Você pode salvar a obra na sua Wishlist para demonstrar interesse.'
+      );
+      return;
+    }
+
+    const cleanPhone = String(phone).replace(/\D/g, '');
+    const message = encodeURIComponent(`Olá! Vi seu anúncio no GiraLivro do livro "${listing.title || listing.books?.title}" e tenho interesse em negociar!`);
+    const whatsappUrl = `https://wa.me/55${cleanPhone}?text=${message}`;
+
+    Linking.openURL(whatsappUrl).catch(() => {
+      Alert.alert('Erro', 'Não foi possível abrir o WhatsApp no seu dispositivo.');
+    });
   };
 
-  const formattedLocation = `${listing.neighborhood || 'Boa Viagem'}, ${listing.city || 'Recife'} - ${listing.uf || 'PE'}${listing.distance_km !== undefined ? ` (${listing.distance_km.toFixed(1)} km de você)` : ''}`;
-  const formattedPrice = listing.price ? `R$ ${Number(listing.price).toFixed(2)}` : 'GRÁTIS (Doação)';
+  const title = listing.title || listing.books?.title || 'Sem título';
+  const author = listing.author || listing.books?.author || 'Autor não informado';
+  const cover = listing.cover_image_url || listing.books?.cover_image_url || listing.cover || listing.cover_url;
+  const modality = listing.transaction_type || listing.modality || 'DISPONÍVEL';
+  const condition = listing.condition || 'Excelente';
+  const price = listing.price;
+  const formattedPrice = price ? `R$ ${Number(price).toFixed(2)}` : 'GRÁTIS (Doação)';
 
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Imagem de Capa com Botões Flutuantes */}
         <View style={styles.imageContainer}>
-          <Image
-            source={{ uri: listing.cover_url || listing.cover || 'https://via.placeholder.com/400x500?text=Sem+Capa' }}
-            style={styles.coverImage}
-            resizeMode="cover"
-          />
+          {cover ? (
+            <Image source={{ uri: cover }} style={styles.coverImage} resizeMode="cover" />
+          ) : (
+            <View style={[styles.coverImage, { backgroundColor: '#1E88E5', justifyContent: 'center', alignItems: 'center' }]}>
+              <Icon name="book-open-page-variant" size={64} color="#FFF" />
+            </View>
+          )}
           <TouchableOpacity style={styles.floatBackBtn} onPress={() => navigation.goBack()}>
             <Icon name="arrow-left" size={24} color="#333" />
           </TouchableOpacity>
@@ -89,39 +129,39 @@ export default function BookDetailsScreen({ route, navigation }) {
         {/* Informações Principais */}
         <View style={styles.detailsSection}>
           <View style={styles.badgeRow}>
-            <View style={[styles.modalityBadge, listing.modality === 'DOAÇÃO' ? styles.badgeGreen : styles.badgeBlue]}>
-              <Text style={styles.modalityBadgeText}>{listing.modality}</Text>
+            <View style={[styles.modalityBadge, modality === 'DOAÇÃO' ? styles.badgeGreen : styles.badgeBlue]}>
+              <Text style={styles.modalityBadgeText}>{modality}</Text>
             </View>
             <View style={styles.conditionBadge}>
-              <Text style={styles.conditionBadgeText}>{`Estado: ${listing.condition}`}</Text>
+              <Text style={styles.conditionBadgeText}>{`Estado: ${condition}`}</Text>
             </View>
           </View>
 
-          <Text style={styles.title}>{listing.title}</Text>
-          <Text style={styles.author}>{`por ${listing.author}`}</Text>
+          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.author}>{`por ${author}`}</Text>
 
-          <Text style={listing.price ? styles.price : styles.freePrice}>{formattedPrice}</Text>
+          <Text style={price ? styles.price : styles.freePrice}>{formattedPrice}</Text>
 
           <View style={styles.divider} />
 
           {/* Localização */}
           <View style={styles.infoRow}>
             <Icon name="map-marker-outline" size={22} color={COLORS.primary} />
-            <Text style={styles.infoText}>{formattedLocation}</Text>
+            <Text style={styles.infoText}>Disponível na comunidade GiraLivro</Text>
           </View>
 
           {/* Gênero */}
           <View style={styles.infoRow}>
             <Icon name="book-open-variant" size={22} color={COLORS.primary} />
-            <Text style={styles.infoText}>{`Gênero: ${listing.genre || 'Não informado'}`}</Text>
+            <Text style={styles.infoText}>{`Gênero: ${listing.genre || 'Ficção / Literatura'}`}</Text>
           </View>
 
           <View style={styles.divider} />
 
           {/* Descrição */}
-          <Text style={styles.sectionTitle}>Descrição do Doador / Vendedor</Text>
+          <Text style={styles.sectionTitle}>Descrição do Anúncio</Text>
           <Text style={styles.description}>
-            {listing.description || 'Nenhuma descrição detalhada fornecida pelo anunciante.'}
+            {listing.observations || listing.description || 'Nenhuma observação adicional fornecida pelo anunciante.'}
           </Text>
 
           {/* Card do Anunciante */}
@@ -130,18 +170,20 @@ export default function BookDetailsScreen({ route, navigation }) {
               <Icon name="account" size={32} color={COLORS.primary} />
             </View>
             <View style={styles.sellerInfo}>
-              <Text style={styles.sellerName}>Anunciante GiraLivro</Text>
-              <Text style={styles.sellerSubtitle}>Membro verificado na UFRPE</Text>
+              <Text style={styles.sellerName}>{seller?.full_name || 'Leitor(a) GiraLivro'}</Text>
+              <Text style={styles.sellerSubtitle}>
+                {seller?.whatsapp ? `📱 WhatsApp: ${seller.whatsapp}` : 'Membro verificado'}
+              </Text>
             </View>
           </View>
         </View>
       </ScrollView>
 
-      {/* Barra Inferior com Ação Principal */}
+      {/* Barra Inferior com Ação WhatsApp */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.chatButton} onPress={handleStartChat}>
-          <Icon name="chat-processing-outline" size={22} color="#FFF" style={{ marginRight: 8 }} />
-          <Text style={styles.chatButtonText}>Tenho Interesse / Negociar</Text>
+        <TouchableOpacity style={styles.whatsappBtn} onPress={handleOpenWhatsapp}>
+          <Icon name="whatsapp" size={24} color="#FFF" style={{ marginRight: 8 }} />
+          <Text style={styles.chatButtonText}>Conversar no WhatsApp</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -350,8 +392,8 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     elevation: 8
   },
-  chatButton: {
-    backgroundColor: COLORS.primary,
+  whatsappBtn: {
+    backgroundColor: '#25D366',
     borderRadius: 12,
     paddingVertical: 14,
     flexDirection: 'row',

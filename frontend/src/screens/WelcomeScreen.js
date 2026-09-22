@@ -50,10 +50,15 @@ export default function WelcomeScreen({ navigation }) {
             </View>
 
             <View style={styles.footerContainer}>
-                <TouchableOpacity style={styles.primaryButton} activeOpacity={0.8} onPress={() => navigation.navigate('ObjectiveScreen')}
-                >
+                <TouchableOpacity style={styles.primaryButton} activeOpacity={0.8} onPress={() => navigation.navigate('ObjectiveScreen')}>
                     <Text style={styles.buttonText}>Começar configuração rápida</Text>
                     <Feather name="arrow-right" size={20} color="#FFFFFF" /> 
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.loginLinkContainer} onPress={() => navigation.navigate('Login')}>
+                    <Text style={styles.loginLinkText}>
+                        Já possui uma conta? <Text style={styles.loginLinkHighlight}>Entrar</Text>
+                    </Text>
                 </TouchableOpacity>
 
                 <Text style={styles.footerText}>
@@ -180,5 +185,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#828282',
     textAlign: 'center',
+  },
+  loginLinkContainer: {
+    alignItems: 'center',
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+  loginLinkText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    color: '#666666',
+  },
+  loginLinkHighlight: {
+    fontFamily: 'Inter_700Bold',
+    color: '#1E88E5',
   },
 });

@@ -139,11 +139,8 @@ export default function LoginScreen({ navigation, route }) {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.welcomeTitle}>BEM-VINDA(O) DE VOLTA</Text>
-        <Text style={styles.subtitle}>
-          Digite seus dados para acessar sua estante virtual e negociar livros na comunidade.
-        </Text>
 
-        {/* Input Email */}
+        {/* Input E-mail */}
         <Text style={styles.label}>E-mail</Text>
         <View style={styles.inputContainer}>
           <Feather name="mail" size={20} color="#666" style={styles.inputIcon} />
@@ -173,7 +170,7 @@ export default function LoginScreen({ navigation, route }) {
         </View>
 
         {/* Botão Esqueceu a Senha */}
-        <TouchableOpacity style={styles.forgotPasswordContainer} onPress={handleForgotPassword}>
+        <TouchableOpacity style={styles.forgotPasswordContainer} onPress={() => navigation.navigate('ForgotPassword')}>
           <Text style={styles.forgotPasswordText}>Esqueceu a senha?</Text>
         </TouchableOpacity>
 
