@@ -19,6 +19,7 @@ export default function LoginScreen({ navigation, route }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -33,8 +34,10 @@ export default function LoginScreen({ navigation, route }) {
   }, []);
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Atenção', 'Por favor, preencha todos os campos.');
+    setErrorMessage('');
+
+    if (!email.trim() || !password) {
+      setErrorMessage('Por favor, preencha seu e-mail e senha.');
       return;
     }
 
@@ -47,7 +50,6 @@ export default function LoginScreen({ navigation, route }) {
 
       if (error) throw error;
 
-      // Garantir que o perfil existe na tabela profiles
       if (data?.user) {
         const { data: existingProfile } = await supabase
           .from('profiles')
@@ -64,14 +66,9 @@ export default function LoginScreen({ navigation, route }) {
           });
         }
       }
-
-      // O listener do App.js vai detectar o login e navegar automaticamente
     } catch (err) {
       console.log('Login error:', err);
-      Alert.alert(
-        'Erro no Login',
-        err.message || 'Credenciais inválidas. Verifique seu e-mail e senha.'
-      );
+      setErrorMessage('E-mail ou senha incorretos. Por favor, verifique seus dados e tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -139,6 +136,14 @@ export default function LoginScreen({ navigation, route }) {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.welcomeTitle}>BEM-VINDA(O) DE VOLTA</Text>
+
+        {/* Banner de Erro Inline */}
+        {errorMessage ? (
+          <View style={styles.errorBanner}>
+            <Feather name="alert-circle" size={20} color="#D32F2F" style={{ marginRight: 8 }} />
+            <Text style={styles.errorBannerText}>{errorMessage}</Text>
+          </View>
+        ) : null}
 
         {/* Input E-mail */}
         <Text style={styles.label}>E-mail</Text>
@@ -357,5 +362,22 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
     fontSize: 14,
     color: '#1E88E5',
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFEBEE',
+    borderColor: '#EF9A9A',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  errorBannerText: {
+    flex: 1,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    color: '#C62828',
+    lineHeight: 18,
   },
 });

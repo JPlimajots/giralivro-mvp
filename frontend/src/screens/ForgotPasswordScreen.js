@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -15,10 +14,16 @@ import { supabase } from '../services/supabase';
 export default function ForgotPasswordScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState(null); // { type: 'success' | 'error', text: string }
 
   const handleSendResetEmail = async () => {
+    setStatusMessage(null);
+
     if (!email.trim()) {
-      Alert.alert('Atenção', 'Por favor, informe seu endereço de e-mail.');
+      setStatusMessage({
+        type: 'error',
+        text: 'Por favor, informe seu endereço de e-mail.',
+      });
       return;
     }
 
@@ -28,19 +33,16 @@ export default function ForgotPasswordScreen({ navigation }) {
       if (error) {
         console.log('Reset password notice:', error);
       }
-      
-      // Mensagem genérica por segurança (não revela se o e-mail existe no banco)
-      Alert.alert(
-        'Solicitação Enviada',
-        'Se este e-mail estiver cadastrado em nossa plataforma, você receberá um link com as instruções para redefinir sua senha em instantes.',
-        [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
-      );
+
+      setStatusMessage({
+        type: 'success',
+        text: 'Se este e-mail estiver cadastrado em nossa plataforma, você receberá um link com as instruções para redefinir sua senha em instantes. Verifique sua caixa de entrada e spam.',
+      });
     } catch (err) {
-      Alert.alert(
-        'Solicitação Enviada',
-        'Se este e-mail estiver cadastrado em nossa plataforma, você receberá um link com as instruções para redefinir sua senha em instantes.',
-        [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
-      );
+      setStatusMessage({
+        type: 'success',
+        text: 'Se este e-mail estiver cadastrado em nossa plataforma, você receberá um link com as instruções para redefinir sua senha em instantes. Verifique sua caixa de entrada e spam.',
+      });
     } finally {
       setLoading(false);
     }
@@ -67,6 +69,27 @@ export default function ForgotPasswordScreen({ navigation }) {
           Não se preocupe! Digite o e-mail cadastrado na sua conta para enviarmos um link de redefinição.
         </Text>
 
+        {/* Banner de Feedback Inline */}
+        {statusMessage ? (
+          <View style={[
+            styles.banner,
+            statusMessage.type === 'success' ? styles.bannerSuccess : styles.bannerError
+          ]}>
+            <Feather
+              name={statusMessage.type === 'success' ? 'check-circle' : 'alert-circle'}
+              size={20}
+              color={statusMessage.type === 'success' ? '#2E7D32' : '#D32F2F'}
+              style={{ marginRight: 10, marginTop: 2 }}
+            />
+            <Text style={[
+              styles.bannerText,
+              statusMessage.type === 'success' ? styles.bannerTextSuccess : styles.bannerTextError
+            ]}>
+              {statusMessage.text}
+            </Text>
+          </View>
+        ) : null}
+
         <Text style={styles.label}>E-mail da sua conta</Text>
         <View style={styles.inputContainer}>
           <Feather name="mail" size={20} color="#9E9E9E" style={styles.inputIcon} />
@@ -77,7 +100,10 @@ export default function ForgotPasswordScreen({ navigation }) {
             keyboardType="email-address"
             autoCapitalize="none"
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(txt) => {
+              setEmail(txt);
+              if (statusMessage) setStatusMessage(null);
+            }}
           />
         </View>
 
@@ -121,7 +147,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 20,
+    paddingTop: 16,
   },
   iconContainer: {
     width: 64,
@@ -130,7 +156,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E3F2FD',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
     alignSelf: 'center',
   },
   title: {
@@ -146,7 +172,35 @@ const styles = StyleSheet.create({
     color: '#666666',
     textAlign: 'center',
     lineHeight: 20,
-    marginBottom: 32,
+    marginBottom: 24,
+  },
+  banner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 20,
+    borderWidth: 1,
+  },
+  bannerSuccess: {
+    backgroundColor: '#E8F5E9',
+    borderColor: '#A5D6A7',
+  },
+  bannerError: {
+    backgroundColor: '#FFEBEE',
+    borderColor: '#EF9A9A',
+  },
+  bannerText: {
+    flex: 1,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  bannerTextSuccess: {
+    color: '#1B5E20',
+  },
+  bannerTextError: {
+    color: '#C62828',
   },
   label: {
     fontFamily: 'Inter_600SemiBold',

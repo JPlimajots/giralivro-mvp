@@ -182,7 +182,14 @@ export default function VisitorScreen({ navigation, route }) {
                   {/* Botão Ver Detalhes */}
                   <TouchableOpacity
                     style={styles.detailsButton}
-                    onPress={() => navigation.navigate('Login')}
+                    onPress={() => {
+                      const realBookId = book.book_id && String(book.book_id).includes('-') ? book.book_id : null;
+                      navigation.navigate('SignUp', {
+                        onboardingGenres: selectedGenres,
+                        onboardingCep: cep,
+                        interestedBookId: realBookId,
+                      });
+                    }}
                     activeOpacity={0.8}
                   >
                     <Text style={styles.detailsButtonText}>Ver Detalhes</Text>

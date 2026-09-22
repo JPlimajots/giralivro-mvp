@@ -15,7 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../services/supabase';
 
 export default function SignUpScreen({ navigation, route }) {
-  const { onboardingCep = '', onboardingGenres = [] } = route.params || {};
+  const { onboardingCep = '', onboardingGenres = [], interestedBookId = null } = route.params || {};
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -58,6 +58,18 @@ export default function SignUpScreen({ navigation, route }) {
           email: email.trim(),
           zip_code: cep.trim(),
         });
+
+        // Se veio de um livro real da vitrine, salva na wishlist do novo usuário
+        if (interestedBookId) {
+          try {
+            await supabase.from('wishlist').upsert({
+              user_id: data.user.id,
+              book_id: interestedBookId,
+            });
+          } catch (wErr) {
+            console.log('Notice: Auto wishlist error:', wErr);
+          }
+        }
       }
 
       const token = data?.session?.access_token;
