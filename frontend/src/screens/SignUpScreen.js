@@ -15,7 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../services/supabase';
 
 export default function SignUpScreen({ navigation, route }) {
-  const { onboardingCep = '', onboardingGenres = [], interestedBookId = null } = route.params || {};
+  const { onboardingObjectives = [], onboardingCep = '', onboardingGenres = [], interestedBookId = null } = route.params || {};
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -45,18 +45,20 @@ export default function SignUpScreen({ navigation, route }) {
             full_name: fullName.trim(),
             cep: cep.trim(),
             favorite_genres: onboardingGenres,
+            objectives: onboardingObjectives,
           },
         },
       });
       if (error) throw error;
 
-      // Criar perfil na tabela profiles do banco de dados
+      // Criar perfil na tabela profiles do banco de dados (salvando array de objetivos e CEP)
       if (data?.user) {
         await supabase.from('profiles').upsert({
           id: data.user.id,
           full_name: fullName.trim(),
           email: email.trim(),
           zip_code: cep.trim(),
+          objectives: onboardingObjectives,
         });
 
         // Se veio de um livro real da vitrine, salva na wishlist do novo usuário
@@ -172,12 +174,17 @@ export default function SignUpScreen({ navigation, route }) {
         </View>
 
         {/* Banner de preferências salvas */}
-        <View style={styles.preferencesBadge}>
-          <Feather name="check-circle" size={18} color="#43A047" style={{ marginRight: 8 }} />
-          <Text style={styles.preferencesText}>
-            Gêneros selecionados: {onboardingGenres.join(', ')}
-          </Text>
-        </View>
+        {onboardingObjectives.length > 0 || onboardingGenres.length > 0 ? (
+          <View style={styles.preferencesBadge}>
+            <Feather name="check-circle" size={18} color="#43A047" style={{ marginRight: 8 }} />
+            <Text style={styles.preferencesText}>
+              {[
+                onboardingObjectives.length > 0 ? `Objetivos: ${onboardingObjectives.join(', ')}` : '',
+                onboardingGenres.length > 0 ? `Gêneros: ${onboardingGenres.join(', ')}` : '',
+              ].filter(Boolean).join(' • ')}
+            </Text>
+          </View>
+        ) : null}
 
         {/* Botão Finalizar Cadastro */}
         <TouchableOpacity

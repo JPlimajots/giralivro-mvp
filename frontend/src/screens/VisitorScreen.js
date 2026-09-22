@@ -15,7 +15,7 @@ import { supabase } from '../services/supabase';
 import { COLORS } from '../constants/theme';
 
 export default function VisitorScreen({ navigation, route }) {
-  const { selectedGenres = [], cep = '', addressInfo = null } = route.params || {};
+  const { selectedObjectives = [], selectedGenres = [], cep = '', addressInfo = null } = route.params || {};
 
   const [searchText, setSearchText] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('todos');
@@ -111,7 +111,7 @@ export default function VisitorScreen({ navigation, route }) {
 
           <TouchableOpacity
             style={styles.barrierButton}
-            onPress={() => navigation.navigate('SignUp', { onboardingGenres: selectedGenres, onboardingCep: cep })}
+            onPress={() => navigation.navigate('SignUp', { onboardingObjectives: selectedObjectives, onboardingGenres: selectedGenres, onboardingCep: cep })}
             activeOpacity={0.8}
           >
             <Text style={styles.barrierButtonText}>Criar conta agora</Text>
@@ -185,6 +185,7 @@ export default function VisitorScreen({ navigation, route }) {
                     onPress={() => {
                       const realBookId = book.book_id && String(book.book_id).includes('-') ? book.book_id : null;
                       navigation.navigate('SignUp', {
+                        onboardingObjectives: selectedObjectives,
                         onboardingGenres: selectedGenres,
                         onboardingCep: cep,
                         interestedBookId: realBookId,

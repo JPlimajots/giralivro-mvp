@@ -27,6 +27,8 @@ export default function ProfileScreen({ navigation }) {
   // Estados de edição
   const [editName, setEditName] = useState('');
   const [editCep, setEditCep] = useState('');
+  const [editWhatsapp, setEditWhatsapp] = useState('');
+  const [editObjectives, setEditObjectives] = useState([]);
   const [updating, setUpdating] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -63,12 +65,15 @@ export default function ProfileScreen({ navigation }) {
         setLocationName('');
       }
 
+      const userObjectives = profileData?.objectives || user.user_metadata?.objectives || [];
+
       const userProfile = {
         id: user.id,
         full_name: profileData?.full_name || user.user_metadata?.full_name || 'Usuário',
         email: profileData?.email || user.email,
         whatsapp: profileData?.whatsapp || '',
         zip_code: zip,
+        objectives: Array.isArray(userObjectives) ? userObjectives : [],
         impact: {
           saved_books_count: realCount,
           paper_saved_kg: (realCount * 0.4).toFixed(1),
@@ -79,6 +84,7 @@ export default function ProfileScreen({ navigation }) {
       setEditName(userProfile.full_name);
       setEditCep(userProfile.zip_code);
       setEditWhatsapp(userProfile.whatsapp);
+      setEditObjectives(userProfile.objectives);
     } catch (error) {
       console.log('Error fetching profile:', error);
     } finally {
@@ -112,6 +118,7 @@ export default function ProfileScreen({ navigation }) {
           zip_code: cleanCep,
           whatsapp: cleanWa,
           email: user.email,
+          objectives: editObjectives,
         });
       if (error) throw error;
 
@@ -129,7 +136,9 @@ export default function ProfileScreen({ navigation }) {
       setProfile(prev => ({
         ...prev,
         full_name: editName.trim(),
-        zip_code: cleanCep
+        zip_code: cleanCep,
+        whatsapp: cleanWa,
+        objectives: editObjectives,
       }));
       setEditModalVisible(false);
       Alert.alert('Sucesso', 'Perfil atualizado com sucesso!');
@@ -189,6 +198,11 @@ export default function ProfileScreen({ navigation }) {
           <Text style={styles.userEmail}>{profile?.email}</Text>
           {profile?.whatsapp ? (
             <Text style={[styles.userCep, { marginTop: 4 }]}>📱 WhatsApp: {profile.whatsapp}</Text>
+          ) : null}
+          {profile?.objectives && profile.objectives.length > 0 ? (
+            <Text style={[styles.userCep, { marginTop: 4 }]}>
+              🎯 Objetivos no app: {profile.objectives.map(o => o.charAt(0).toUpperCase() + o.slice(1)).join(', ')}
+            </Text>
           ) : null}
           <TouchableOpacity onPress={() => setEditModalVisible(true)}>
             {locationName ? (
@@ -305,6 +319,37 @@ export default function ProfileScreen({ navigation }) {
               placeholderTextColor="#BDBDBD"
               keyboardType="numeric"
             />
+
+            <Text style={styles.inputLabel}>Objetivos de Uso</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+              {['comprar', 'vender', 'trocar', 'doar'].map(obj => {
+                const isSelected = editObjectives.includes(obj);
+                return (
+                  <TouchableOpacity
+                    key={obj}
+                    onPress={() => {
+                      if (isSelected) {
+                        setEditObjectives(editObjectives.filter(o => o !== obj));
+                      } else {
+                        setEditObjectives([...editObjectives, obj]);
+                      }
+                    }}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 16,
+                      backgroundColor: isSelected ? '#1E88E5' : '#F5F5F6',
+                      borderWidth: 1,
+                      borderColor: isSelected ? '#1E88E5' : '#E0E0E0',
+                    }}
+                  >
+                    <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 13, color: isSelected ? '#FFF' : '#333' }}>
+                      {obj.charAt(0).toUpperCase() + obj.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
 
             <View style={styles.modalButtonsRow}>
               <TouchableOpacity

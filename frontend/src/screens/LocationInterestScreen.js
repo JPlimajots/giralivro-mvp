@@ -14,7 +14,8 @@ import { Feather } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { fetchAddressByCep } from '../services/viacep';
 
-export default function LocationInterestScreen({ navigation }) {
+export default function LocationInterestScreen({ navigation, route }) {
+  const { selectedObjectives = [] } = route.params || {};
   const [cep, setCep] = useState('');
   const [addressInfo, setAddressInfo] = useState(null);
   const [loadingCep, setLoadingCep] = useState(false);
@@ -254,7 +255,7 @@ export default function LocationInterestScreen({ navigation }) {
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.primaryButton}
-          onPress={() => navigation.navigate('VisitorScreen', { selectedGenres, cep, addressInfo, gpsCoords })}
+          onPress={() => navigation.navigate('VisitorScreen', { selectedObjectives, selectedGenres, cep, addressInfo, gpsCoords })}
         >
           <Text style={styles.primaryButtonText}>
             Ir para o Painel
