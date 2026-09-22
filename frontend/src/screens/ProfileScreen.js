@@ -96,8 +96,6 @@ export default function ProfileScreen({ navigation }) {
     fetchProfile();
   }, []);
 
-  const [editWhatsapp, setEditWhatsapp] = useState('');
-
   const handleUpdateProfile = async () => {
     if (!editName.trim()) {
       Alert.alert('Atenção', 'O nome não pode ficar em branco.');
