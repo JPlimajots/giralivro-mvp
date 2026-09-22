@@ -7,6 +7,7 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -26,7 +27,9 @@ export default function ForgotPasswordScreen({ navigation }) {
         type: 'error',
         text: msg,
       });
-      Alert.alert('Atenção', msg);
+      if (Platform.OS !== 'web') {
+        Alert.alert('Atenção', msg);
+      }
       return;
     }
 
@@ -42,14 +45,18 @@ export default function ForgotPasswordScreen({ navigation }) {
         type: 'success',
         text: successMsg,
       });
-      Alert.alert('Instruções Enviadas', successMsg);
+      if (Platform.OS !== 'web') {
+        Alert.alert('Instruções Enviadas', successMsg);
+      }
     } catch (err) {
       const successMsg = 'Se este e-mail estiver cadastrado em nossa plataforma, você receberá um link com as instruções para redefinir sua senha em instantes. Verifique sua caixa de entrada e spam.';
       setStatusMessage({
         type: 'success',
         text: successMsg,
       });
-      Alert.alert('Instruções Enviadas', successMsg);
+      if (Platform.OS !== 'web') {
+        Alert.alert('Instruções Enviadas', successMsg);
+      }
     } finally {
       setLoading(false);
     }

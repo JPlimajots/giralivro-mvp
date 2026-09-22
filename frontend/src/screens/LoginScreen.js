@@ -41,7 +41,9 @@ export default function LoginScreen({ navigation, route }) {
     if (!email.trim() || !password) {
       const msg = 'Por favor, preencha seu e-mail e senha.';
       setErrorMessage(msg);
-      Alert.alert('Atenção', msg);
+      if (Platform.OS !== 'web') {
+        Alert.alert('Atenção', msg);
+      }
       scrollViewRef.current?.scrollTo({ y: 0, animated: true });
       return;
     }
@@ -75,7 +77,9 @@ export default function LoginScreen({ navigation, route }) {
       console.log('Login error:', err);
       const genericMsg = 'Não foi possível realizar o login. E-mail ou senha incorretos. Por favor, verifique seus dados e tente novamente.';
       setErrorMessage(genericMsg);
-      Alert.alert('Erro de Login', genericMsg);
+      if (Platform.OS !== 'web') {
+        Alert.alert('Erro de Login', genericMsg);
+      }
       scrollViewRef.current?.scrollTo({ y: 0, animated: true });
     } finally {
       setLoading(false);
