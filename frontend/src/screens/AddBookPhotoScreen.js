@@ -31,7 +31,7 @@ export default function AddBookPhotoScreen({ navigation }) {
     }
 
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       quality: 0.7,
       allowsEditing: true,
       aspect: [3, 4],
@@ -44,7 +44,7 @@ export default function AddBookPhotoScreen({ navigation }) {
 
   const handlePickGallery = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       quality: 0.7,
       allowsEditing: true,
       aspect: [3, 4],

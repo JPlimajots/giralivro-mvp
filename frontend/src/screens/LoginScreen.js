@@ -9,11 +9,10 @@ import {
   Alert,
   ScrollView,
   Linking,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, FontAwesome } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { api } from '../services/api';
 import { supabase } from '../services/supabase';
 
 export default function LoginScreen({ navigation, route }) {
@@ -41,59 +40,55 @@ export default function LoginScreen({ navigation, route }) {
 
     setLoading(true);
     try {
-      // 1. Tenta login direto no Supabase Client (front)
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password: password,
       });
 
-      let token = data?.session?.access_token;
+      if (error) throw error;
 
-      // 2. Se erro ou sem sessão no Supabase, tenta o endpoint da API FastAPI (back)
-      if (error || !token) {
-        const response = await api.post('/auth/login', {
-          email: email.trim(),
-          password: password,
-        });
-        token = response.data.access_token;
+      // Garantir que o perfil existe na tabela profiles
+      if (data?.user) {
+        const { data: existingProfile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', data.user.id)
+          .single();
+
+        if (!existingProfile) {
+          await supabase.from('profiles').upsert({
+            id: data.user.id,
+            full_name: data.user.user_metadata?.full_name || '',
+            email: data.user.email,
+            zip_code: data.user.user_metadata?.cep || '',
+          });
+        }
       }
 
-      if (token) {
-        await AsyncStorage.setItem('@giralivro:token', token);
-        Alert.alert('Sucesso', 'Bem-vindo(a) de volta ao GiraLivro!', [
-          {
-            text: 'Continuar',
-            onPress: () => {
-              if (route.params?.onLoginSuccess) {
-                route.params.onLoginSuccess();
-              } else {
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'Profile' }],
-                });
-              }
-            },
-          },
-        ]);
-      }
+      // O listener do App.js vai detectar o login e navegar automaticamente
     } catch (err) {
       console.log('Login error:', err);
-      // Suporte a login de teste (Camila)
-      if (email.toLowerCase().includes('camila') || password === '123456') {
-        const mockToken = 'mock-jwt-token-camila';
-        await AsyncStorage.setItem('@giralivro:token', mockToken);
-        Alert.alert('Sucesso', 'Login de demonstração efetuado com sucesso!', [
-          {
-            text: 'Continuar',
-            onPress: () => navigation.navigate('Profile'),
-          },
-        ]);
-      } else {
-        Alert.alert(
-          'Erro no Login',
-          err.response?.data?.detail || err.message || 'Credenciais inválidas.'
-        );
-      }
+      Alert.alert(
+        'Erro no Login',
+        err.message || 'Credenciais inválidas. Verifique seu e-mail e senha.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      Alert.alert('Atenção', 'Preencha o campo de e-mail acima para recuperar a senha.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+      if (error) throw error;
+      Alert.alert('Sucesso', 'Se o e-mail estiver cadastrado, você receberá um link para redefinir a senha.');
+    } catch (err) {
+      Alert.alert('Erro', err.message || 'Não foi possível enviar o e-mail.');
     } finally {
       setLoading(false);
     }
@@ -102,30 +97,30 @@ export default function LoginScreen({ navigation, route }) {
   const handleGoogleLogin = async () => {
     setLoading(true);
     try {
-      // Chamada real da API Supabase OAuth Google
+      const redirectUrl = Platform.OS === 'web'
+        ? window.location.origin
+        : 'giralivro://login-callback';
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: 'giralivro://login-callback',
+          redirectTo: redirectUrl,
         },
       });
 
       if (error) throw error;
 
-      if (data?.url) {
-        // Redireciona para a tela de autenticação real do Google
+      if (data?.url && Platform.OS !== 'web') {
         const canOpen = await Linking.canOpenURL(data.url);
         if (canOpen) {
           await Linking.openURL(data.url);
-        } else {
-          Alert.alert('Google Login', 'Iniciando consentimento do Google no Supabase...');
         }
       }
     } catch (error) {
       console.log('Google OAuth Error:', error);
       Alert.alert(
         'Login com Google',
-        'Não foi possível conectar ao Google OAuth no momento. Verifique a configuração de Provider no Dashboard do Supabase.'
+        'Não foi possível conectar ao Google OAuth no momento.'
       );
     } finally {
       setLoading(false);
@@ -176,6 +171,11 @@ export default function LoginScreen({ navigation, route }) {
             onChangeText={setPassword}
           />
         </View>
+
+        {/* Botão Esqueceu a Senha */}
+        <TouchableOpacity style={styles.forgotPasswordContainer} onPress={handleForgotPassword}>
+          <Text style={styles.forgotPasswordText}>Esqueceu a senha?</Text>
+        </TouchableOpacity>
 
         {/* Botão Entrar */}
         <TouchableOpacity
@@ -283,6 +283,16 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 15,
     color: '#333333',
+  },
+  forgotPasswordContainer: {
+    alignSelf: 'flex-end',
+    marginBottom: 20,
+    marginTop: -8,
+  },
+  forgotPasswordText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
+    color: '#1E88E5',
   },
   primaryButton: {
     backgroundColor: '#1E88E5',

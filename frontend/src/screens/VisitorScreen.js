@@ -11,11 +11,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { api } from '../services/api';
+import { supabase } from '../services/supabase';
 import { COLORS } from '../constants/theme';
 
 export default function VisitorScreen({ navigation, route }) {
-  const { selectedGenres = [], cep = '', addressInfo = null, gpsCoords = null } = route.params || {};
+  const { selectedGenres = [], cep = '', addressInfo = null } = route.params || {};
 
   const [searchText, setSearchText] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('todos');
@@ -32,49 +32,31 @@ export default function VisitorScreen({ navigation, route }) {
   const fetchPublicFeed = async () => {
     setLoading(true);
     try {
-      const genresParam = selectedGenres.length > 0 ? selectedGenres.join(',') : undefined;
-      const response = await api.get('/feed/public', {
-        params: { genres: genresParam },
-      });
-      setBooks(response.data);
+      const { data, error } = await supabase
+        .from('listings')
+        .select('*, books(*)')
+        .eq('status', 'ATIVO')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+
+      const formatted = (data || []).map(item => ({
+        id: item.id,
+        title: item.books?.title || item.title || 'Sem título',
+        author: item.books?.author || item.author || 'Autor não informado',
+        cover: item.books?.cover_image_url || item.cover_url || 'https://covers.openlibrary.org/b/id/153253-M.jpg',
+        modality: item.transaction_type || 'TROCA',
+        price: item.price,
+        condition: item.condition || 'Bom',
+        neighborhood: addressInfo?.bairro || (cep ? `CEP ${cep}` : 'sua região'),
+        genre: item.genre || 'Ficção',
+      }));
+
+      setBooks(formatted);
     } catch (error) {
       console.log('Error fetching public feed:', error);
-      setBooks([
-        {
-          id: 'b1',
-          title: '1984',
-          author: 'George Orwell',
-          cover: 'https://covers.openlibrary.org/b/id/153253-M.jpg',
-          modality: 'TROCA',
-          condition: 'Excelente',
-          neighborhood: addressInfo?.bairro || 'Boa Viagem',
-          distance_km: 1.2,
-          genre: 'Ficção',
-        },
-        {
-          id: 'b2',
-          title: 'O Hobbit',
-          author: 'J.R.R. Tolkien',
-          cover: 'https://covers.openlibrary.org/b/id/8406786-M.jpg',
-          modality: 'TROCA',
-          condition: 'Bom',
-          neighborhood: addressInfo?.bairro || 'Boa Viagem',
-          distance_km: 1.5,
-          genre: 'Fantasia',
-        },
-        {
-          id: 'b3',
-          title: 'Duna',
-          author: 'Frank Herbert',
-          cover: 'https://covers.openlibrary.org/b/id/10523450-M.jpg',
-          modality: 'VENDA OU TROCA',
-          price: 80.0,
-          condition: 'Novo',
-          neighborhood: addressInfo?.bairro || 'Pina',
-          distance_km: 2.5,
-          genre: 'Sci-Fi',
-        },
-      ]);
+      setBooks([]);
     } finally {
       setLoading(false);
     }
@@ -98,7 +80,7 @@ export default function VisitorScreen({ navigation, route }) {
 
   const locationDisplay = addressInfo
     ? `${addressInfo.bairro || addressInfo.localidade || 'Sua região'}`
-    : 'Boa Viagem';
+    : cep ? `CEP ${cep}` : 'sua região';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -174,8 +156,7 @@ export default function VisitorScreen({ navigation, route }) {
         ) : (
           <View style={styles.booksList}>
             {filteredBooks.map((book) => {
-              const bookLocText = `${book.neighborhood} • ${book.distance_km}km`;
-              const modalityPriceText = `${book.modality}${book.price ? ` R$ ${book.price}` : ''}`;
+              const modalityPriceText = `${book.modality}${book.price ? ` R$ ${book.price.toFixed(2)}` : ''}`;
 
               return (
                 <View key={book.id} style={styles.bookCard}>
@@ -186,7 +167,7 @@ export default function VisitorScreen({ navigation, route }) {
                       {book.title}
                     </Text>
                     <Text style={styles.bookAuthor}>{book.author}</Text>
-                    <Text style={styles.bookLocation}>{bookLocText}</Text>
+                    <Text style={styles.bookLocation}>📍 Disponível na região</Text>
 
                     <View style={styles.badgeRow}>
                       <View style={styles.modalityBadge}>

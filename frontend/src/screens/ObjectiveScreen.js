@@ -79,8 +79,8 @@ export default function ObjectiveScreen({ navigation }) {
                 {option.subtitle ? <Text style={styles.cardSubtitle}>{option.subtitle}</Text> : null}
               </View>
 
-              <View style={[styles.radioOuter, isSelected && styles.radioOuterSelected]}>
-                {isSelected ? <View style={styles.radioInner} /> : null}
+              <View style={[styles.checkboxOuter, isSelected && styles.checkboxOuterSelected]}>
+                {isSelected ? <Feather name="check" size={16} color="#FFFFFF" /> : null}
               </View>
             </TouchableOpacity>
           );
@@ -100,8 +100,8 @@ export default function ObjectiveScreen({ navigation }) {
             <Text style={styles.cardTitle}>Todas as opções</Text>
           </View>
 
-          <View style={[styles.radioOuter, isAllSelected && styles.radioOuterSelected]}>
-            {isAllSelected ? <View style={styles.radioInner} /> : null}
+          <View style={[styles.checkboxOuter, isAllSelected && styles.checkboxOuterSelected]}>
+            {isAllSelected ? <Feather name="check" size={16} color="#FFFFFF" /> : null}
           </View>
         </TouchableOpacity>
       </ScrollView>
@@ -214,23 +214,19 @@ const styles = StyleSheet.create({
     marginTop: 4,
     lineHeight: 18,
   },
-  // Radio Buttons
-  radioOuter: {
+  // Checkbox (substituindo Radio Buttons)
+  checkboxOuter: {
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: 6,
     borderWidth: 2,
     borderColor: '#9E9E9E',
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
   },
-  radioOuterSelected: {
+  checkboxOuterSelected: {
     borderColor: '#1E88E5',
-  },
-  radioInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
     backgroundColor: '#1E88E5',
   },
   // Footer e Botão

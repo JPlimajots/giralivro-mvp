@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { api } from '../services/api';
+import { supabase } from '../services/supabase';
 import { COLORS } from '../constants/theme';
 
 export default function MyVirtualShelfScreen({ navigation }) {
@@ -21,24 +21,20 @@ export default function MyVirtualShelfScreen({ navigation }) {
   const fetchMyListings = async () => {
     setLoading(true);
     try {
-      const response = await api.get('/listings/me');
-      setListings(response.data);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('listings')
+        .select('*, books(*)')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setListings(data || []);
     } catch (error) {
       console.log('Error fetching my listings:', error);
-      setListings([
-        {
-          id: 'list-1',
-          title: 'O Hobbit',
-          author: 'J.R.R. Tolkien',
-          cover_url: 'https://covers.openlibrary.org/b/id/8406786-M.jpg',
-          modality: 'VENDA OU TROCA',
-          price: 80.0,
-          condition: 'Novo',
-          genre: 'Fantasia',
-          status: 'Publicado',
-          neighborhood: 'Boa Viagem',
-        },
-      ]);
+      setListings([]);
     } finally {
       setLoading(false);
     }
@@ -50,7 +46,11 @@ export default function MyVirtualShelfScreen({ navigation }) {
 
   const handleMarkAsTraded = async (id) => {
     try {
-      await api.put(`/listings/${id}`, { status: 'Negociado' });
+      const { error } = await supabase
+        .from('listings')
+        .update({ status: 'NEGOCIADO', updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
       Alert.alert('Sucesso', 'Anúncio marcado como Negociado!');
       fetchMyListings();
     } catch (error) {
@@ -66,7 +66,11 @@ export default function MyVirtualShelfScreen({ navigation }) {
         style: 'destructive',
         onPress: async () => {
           try {
-            await api.delete(`/listings/${id}`);
+            const { error } = await supabase
+              .from('listings')
+              .delete()
+              .eq('id', id);
+            if (error) throw error;
             Alert.alert('Removido', 'Anúncio excluído com sucesso!');
             fetchMyListings();
           } catch (e) {
@@ -76,6 +80,9 @@ export default function MyVirtualShelfScreen({ navigation }) {
       },
     ]);
   };
+
+  const count = listings.length;
+  const paperKg = (count * 0.4).toFixed(1);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -98,25 +105,33 @@ export default function MyVirtualShelfScreen({ navigation }) {
         ) : (
           <View style={styles.listingsList}>
             {listings.map((item) => {
-              const formattedModality = `${item.modality}${item.price ? ` • R$ ${item.price.toFixed(2)}` : ''}`;
-              const formattedLocation = `📍 ${item.neighborhood || 'Boa Viagem'}`;
+              const book = item.books || {};
+              const title = book.title || item.title || 'Sem título';
+              const author = book.author || item.author || '';
+              const cover = book.cover_image_url || item.cover_url;
+              const formattedModality = `${item.transaction_type || 'DISPONÍVEL'}${item.price ? ` • R$ ${Number(item.price).toFixed(2)}` : ''}`;
 
               return (
                 <View key={item.id} style={styles.card}>
-                  <Image source={{ uri: item.cover_url }} style={styles.cover} resizeMode="cover" />
+                  {cover ? (
+                    <Image source={{ uri: cover }} style={styles.cover} resizeMode="cover" />
+                  ) : (
+                    <View style={[styles.cover, { backgroundColor: '#E3F2FD', justifyContent: 'center', alignItems: 'center' }]}>
+                      <Feather name="book" size={28} color="#1E88E5" />
+                    </View>
+                  )}
 
                   <View style={styles.cardBody}>
                     <View style={styles.statusBadge}>
-                      <Text style={styles.statusBadgeText}>{item.status || 'Publicado'}</Text>
+                      <Text style={styles.statusBadgeText}>{item.status || 'ATIVO'}</Text>
                     </View>
 
                     <Text style={styles.bookTitle} numberOfLines={1}>
-                      {item.title}
+                      {title}
                     </Text>
-                    <Text style={styles.bookAuthor}>{item.author}</Text>
+                    <Text style={styles.bookAuthor}>{author}</Text>
 
                     <Text style={styles.modalityText}>{formattedModality}</Text>
-                    <Text style={styles.locationText}>{formattedLocation}</Text>
 
                     {/* Ações do Anúncio */}
                     <View style={styles.actionsRow}>
@@ -160,16 +175,16 @@ export default function MyVirtualShelfScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* Impacto Positivo */}
+        {/* Impacto Positivo dinâmico */}
         <View style={styles.impactBox}>
           <Text style={styles.impactHeader}>Seu impacto positivo</Text>
           <View style={styles.impactMetrics}>
             <View style={styles.metricItem}>
-              <Text style={styles.metricVal}>1 livro</Text>
+              <Text style={styles.metricVal}>{count} {count === 1 ? 'livro' : 'livros'}</Text>
               <Text style={styles.metricTxt}>LIVROS REUTILIZADOS</Text>
             </View>
             <View style={styles.metricItem}>
-              <Text style={styles.metricVal}>~2kg</Text>
+              <Text style={styles.metricVal}>~{paperKg}kg</Text>
               <Text style={styles.metricTxt}>PAPEL ECONOMIZADO</Text>
             </View>
           </View>
@@ -256,12 +271,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
     fontSize: 12,
     color: COLORS.primary,
-    marginBottom: 2,
-  },
-  locationText: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 12,
-    color: COLORS.disabled,
     marginBottom: 10,
   },
   actionsRow: {
