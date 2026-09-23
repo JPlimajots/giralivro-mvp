@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { api } from '../services/api';
+import { supabase } from '../services/supabase';
 
 export default function AddListingDetailsScreen({ navigation, route }) {
   const { coverUrl = 'https://covers.openlibrary.org/b/id/153253-M.jpg' } = route.params || {};
@@ -42,28 +42,36 @@ export default function AddListingDetailsScreen({ navigation, route }) {
 
     setSearchingIsbn(true);
     try {
-      const response = await api.get(`/books/isbn/${isbn.trim()}`);
-      if (response.data) {
-        setTitle(response.data.title || '');
-        setAuthor(response.data.author || '');
-        setDescription(response.data.description || '');
-        if (response.data.genre) setGenre(response.data.genre);
-        Alert.alert('Obra Encontrada!', `Preenchemos automaticamente: "${response.data.title}" por ${response.data.author}`);
+      const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn.trim()}`);
+      const data = await res.json();
+      if (data.items && data.items.length > 0) {
+        const volumeInfo = data.items[0].volumeInfo;
+        const fetchedTitle = volumeInfo.title || '';
+        const fetchedAuthor = volumeInfo.authors ? volumeInfo.authors.join(', ') : '';
+        const fetchedDesc = volumeInfo.description || '';
+        setTitle(fetchedTitle);
+        setAuthor(fetchedAuthor);
+        setDescription(fetchedDesc);
+        if (volumeInfo.categories && volumeInfo.categories.length > 0) {
+          setGenre(volumeInfo.categories[0]);
+        }
+        Alert.alert('Obra Encontrada!', `Preenchemos automaticamente: "${fetchedTitle}" por ${fetchedAuthor}`);
+      } else {
+        Alert.alert('ISBN não encontrado', 'Não encontramos este ISBN na API pública. Preencha o título e autor manualmente.');
       }
     } catch (err) {
-      Alert.alert('ISBN não encontrado', 'Não encontramos este ISBN na Google Books API. Preencha o título e autor manualmente.');
+      Alert.alert('ISBN não encontrado', 'Não foi possível buscar os metadados do ISBN. Preencha manualmente.');
     } finally {
       setSearchingIsbn(false);
     }
   };
 
   const handlePublish = async () => {
-    if (!title || !author) {
+    if (!title.trim() || !author.trim()) {
       Alert.alert('Campos Obrigatórios', 'Preencha o título e autor do livro.');
       return;
     }
 
-    // Determina modalidade
     let modalityList = [];
     if (isTrade) modalityList.push('TROCA');
     if (isSale) modalityList.push('VENDA');
@@ -78,31 +86,50 @@ export default function AddListingDetailsScreen({ navigation, route }) {
 
     setPublishing(true);
     try {
-      // 1. Opcional: Registra no catálogo universal se tiver ISBN
-      if (isbn) {
-        try {
-          await api.post('/books', {
-            isbn: isbn.trim(),
-            title: title.trim(),
-            author: author.trim(),
-            cover_url: coverUrl,
-            description: description,
-            genre: genre,
-          });
-        } catch (e) {}
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado.');
+
+      // 1. Procurar ou inserir livro na tabela `books`
+      let bookId = null;
+      if (isbn.trim()) {
+        const { data: existingBook } = await supabase
+          .from('books')
+          .select('id')
+          .eq('isbn', isbn.trim())
+          .maybeSingle();
+        if (existingBook) bookId = existingBook.id;
       }
 
-      // 2. Registra o anúncio do usuário
-      await api.post('/listings', {
-        title: title.trim(),
-        author: author.trim(),
-        cover_url: coverUrl,
-        modality: modality,
-        price: isSale && price ? parseFloat(price) : null,
-        condition: condition,
-        description: description,
-        genre: genre,
-      });
+      if (!bookId) {
+        const { data: newBook, error: bookErr } = await supabase
+          .from('books')
+          .insert({
+            isbn: isbn.trim() || null,
+            title: title.trim(),
+            author: author.trim(),
+            cover_image_url: coverUrl,
+          })
+          .select()
+          .single();
+
+        if (bookErr) throw bookErr;
+        bookId = newBook.id;
+      }
+
+      // 2. Inserir anúncio na tabela `listings`
+      const { error: listingErr } = await supabase
+        .from('listings')
+        .insert({
+          user_id: user.id,
+          book_id: bookId,
+          transaction_type: modality,
+          condition: condition,
+          price: isSale && price ? parseFloat(price) : null,
+          observations: description,
+          status: 'ATIVO',
+        });
+
+      if (listingErr) throw listingErr;
 
       navigation.reset({
         index: 0,
@@ -110,7 +137,7 @@ export default function AddListingDetailsScreen({ navigation, route }) {
       });
     } catch (err) {
       console.log('Publish error:', err);
-      Alert.alert('Erro ao Publicar', err.response?.data?.detail || 'Não foi possível salvar o anúncio.');
+      Alert.alert('Erro ao Publicar', err.message || 'Não foi possível salvar o anúncio.');
     } finally {
       setPublishing(false);
     }
@@ -348,7 +375,7 @@ const styles = StyleSheet.create({
     color: '#FFF',
   },
   primaryButton: {
-    backgroundColor: '#43A047', // Verde Sustentável para publicação concluída com sucesso
+    backgroundColor: '#43A047',
     height: 52,
     borderRadius: 26,
     justifyContent: 'center',

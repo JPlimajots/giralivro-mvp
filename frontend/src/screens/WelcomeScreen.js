@@ -50,8 +50,7 @@ export default function WelcomeScreen({ navigation }) {
             </View>
 
             <View style={styles.footerContainer}>
-                <TouchableOpacity style={styles.primaryButton} activeOpacity={0.8} onPress={() => navigation.navigate('ObjectiveScreen')}
-                >
+                <TouchableOpacity style={styles.primaryButton} activeOpacity={0.8} onPress={() => navigation.navigate('ObjectiveScreen')}>
                     <Text style={styles.buttonText}>Começar configuração rápida</Text>
                     <Feather name="arrow-right" size={20} color="#FFFFFF" /> 
                 </TouchableOpacity>
@@ -166,11 +165,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
-    shadowColor: '#1E88E5',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4, // Sombra no Android (Material Design)
+    elevation: 4,
+    boxShadow: '0px 4px 8px rgba(30, 136, 229, 0.3)', // Sombra no Android (Material Design)
   },
   buttonText: {
     fontFamily: 'Inter_600SemiBold',

@@ -9,47 +9,84 @@ import {
   Alert,
   Modal,
   TextInput,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { api } from '../services/api';
+import { supabase } from '../services/supabase';
+import { getAddressFromCep } from '../services/cep';
 
 export default function ProfileScreen({ navigation }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editModalVisible, setEditModalVisible] = useState(false);
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+  const [locationName, setLocationName] = useState('');
 
   // Estados de edição
   const [editName, setEditName] = useState('');
   const [editCep, setEditCep] = useState('');
+  const [editWhatsapp, setEditWhatsapp] = useState('');
+  const [editObjectives, setEditObjectives] = useState([]);
   const [updating, setUpdating] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const fetchProfile = async () => {
     setLoading(true);
     try {
-      const response = await api.get('/users/me');
-      setProfile(response.data);
-      setEditName(response.data.full_name || '');
-      setEditCep(response.data.cep || '');
-    } catch (error) {
-      console.log('Error fetching profile:', error);
-      // Fallback para demonstração (Camila)
-      const mockProfile = {
-        id: 'user-mock-camila',
-        full_name: 'Camila Silva',
-        email: 'camila@giralivro.com.br',
-        cep: '51020-010',
-        favorite_genres: ['Ficção', 'Romance', 'Fantasia'],
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+
+      // Ler dados do perfil na tabela profiles
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      // Contar anúncios reais do usuário para métricas de impacto
+      const { count: listingsCount } = await supabase
+        .from('listings')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      const realCount = listingsCount || 0;
+      const zip = profileData?.zip_code || user.user_metadata?.cep || '';
+
+      if (zip) {
+        const addr = await getAddressFromCep(zip);
+        if (addr?.formatted) {
+          setLocationName(`${addr.formatted} (CEP ${zip})`);
+        } else {
+          setLocationName(`CEP ${zip}`);
+        }
+      } else {
+        setLocationName('');
+      }
+
+      const userObjectives = profileData?.objectives || user.user_metadata?.objectives || [];
+
+      const userProfile = {
+        id: user.id,
+        full_name: profileData?.full_name || user.user_metadata?.full_name || 'Usuário',
+        email: profileData?.email || user.email,
+        whatsapp: profileData?.whatsapp || '',
+        zip_code: zip,
+        objectives: Array.isArray(userObjectives) ? userObjectives : [],
         impact: {
-          saved_amount: 240.0,
-          saved_books_count: 3,
-          paper_saved_kg: 2.0,
+          saved_books_count: realCount,
+          paper_saved_kg: (realCount * 0.4).toFixed(1),
         },
       };
-      setProfile(mockProfile);
-      setEditName(mockProfile.full_name);
-      setEditCep(mockProfile.cep);
+
+      setProfile(userProfile);
+      setEditName(userProfile.full_name);
+      setEditCep(userProfile.zip_code);
+      setEditWhatsapp(userProfile.whatsapp);
+      setEditObjectives(userProfile.objectives);
+    } catch (error) {
+      console.log('Error fetching profile:', error);
     } finally {
       setLoading(false);
     }
@@ -67,35 +104,63 @@ export default function ProfileScreen({ navigation }) {
 
     setUpdating(true);
     try {
-      const response = await api.put('/users/me', {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const cleanCep = editCep.trim();
+      const cleanWa = editWhatsapp.trim();
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          full_name: editName.trim(),
+          zip_code: cleanCep,
+          whatsapp: cleanWa,
+          email: user.email,
+          objectives: editObjectives,
+        });
+      if (error) throw error;
+
+      if (cleanCep) {
+        const addr = await getAddressFromCep(cleanCep);
+        if (addr?.formatted) {
+          setLocationName(`${addr.formatted} (CEP ${cleanCep})`);
+        } else {
+          setLocationName(`CEP ${cleanCep}`);
+        }
+      } else {
+        setLocationName('');
+      }
+
+      setProfile(prev => ({
+        ...prev,
         full_name: editName.trim(),
-        cep: editCep.trim(),
-      });
-      setProfile(response.data);
+        zip_code: cleanCep,
+        whatsapp: cleanWa,
+        objectives: editObjectives,
+      }));
       setEditModalVisible(false);
       Alert.alert('Sucesso', 'Perfil atualizado com sucesso!');
     } catch (error) {
+      console.log('Update error:', error);
       Alert.alert('Erro', 'Não foi possível atualizar o perfil.');
     } finally {
       setUpdating(false);
     }
   };
 
-  const handleLogout = async () => {
-    Alert.alert('Sair da Conta', 'Deseja realmente sair da sua conta?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Sair',
-        style: 'destructive',
-        onPress: async () => {
-          await AsyncStorage.removeItem('@giralivro:token');
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'Welcome' }],
-          });
-        },
-      },
-    ]);
+  const handleConfirmLogout = async () => {
+    setLoggingOut(true);
+    try {
+      // 1. Limpar token do AsyncStorage
+      await AsyncStorage.removeItem('@giralivro:token');
+      // 2. Encerrar sessão no Supabase
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.log('Erro ao sair:', e);
+    } finally {
+      setLoggingOut(false);
+      setLogoutModalVisible(false);
+    }
   };
 
   if (loading) {
@@ -108,13 +173,13 @@ export default function ProfileScreen({ navigation }) {
   }
 
   const firstName = profile?.full_name?.split(' ')[0] || 'Leitor(a)';
-  const impact = profile?.impact || { saved_amount: 240.0, saved_books_count: 3 };
+  const impact = profile?.impact || { saved_books_count: 0, paper_saved_kg: '0.0' };
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Top Bar Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.navigate('VisitorScreen')}>
+        <TouchableOpacity onPress={() => navigation.navigate('HomeLogado')}>
           <Feather name="home" size={24} color="#333" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Meu Perfil</Text>
@@ -129,7 +194,23 @@ export default function ProfileScreen({ navigation }) {
           <Text style={styles.eyebrow}>BEM-VINDA(O) DE VOLTA</Text>
           <Text style={styles.userName}>Olá, {firstName}</Text>
           <Text style={styles.userEmail}>{profile?.email}</Text>
-          <Text style={styles.userCep}>📍 Região de entrega: CEP {profile?.cep || 'Não informado'}</Text>
+          {profile?.whatsapp ? (
+            <Text style={[styles.userCep, { marginTop: 4 }]}>📱 WhatsApp: {profile.whatsapp}</Text>
+          ) : null}
+          {profile?.objectives && profile.objectives.length > 0 ? (
+            <Text style={[styles.userCep, { marginTop: 4 }]}>
+              🎯 Objetivos no app: {profile.objectives.map(o => o.charAt(0).toUpperCase() + o.slice(1)).join(', ')}
+            </Text>
+          ) : null}
+          <TouchableOpacity onPress={() => setEditModalVisible(true)}>
+            {locationName ? (
+              <Text style={styles.userCep}>📍 Região: {locationName}</Text>
+            ) : (
+              <Text style={[styles.userCep, { color: '#BDBDBD', fontStyle: 'italic' }]}>
+                📍 CEP não cadastrado — toque no ✏️ para adicionar
+              </Text>
+            )}
+          </TouchableOpacity>
         </View>
 
         {/* Card de Impacto GiraLivro */}
@@ -140,8 +221,8 @@ export default function ProfileScreen({ navigation }) {
           </View>
 
           <Text style={styles.impactMessage}>
-            Você já economizou <Text style={styles.highlightText}>R$ {impact.saved_amount.toFixed(2)}</Text> e
-            salvou <Text style={styles.highlightText}>{impact.saved_books_count} livros</Text> neste ano!
+            Você já disponibilizou <Text style={styles.highlightText}>{impact.saved_books_count} {impact.saved_books_count === 1 ? 'livro' : 'livros'}</Text> na
+            comunidade GiraLivro!
           </Text>
 
           <View style={styles.impactMetricsRow}>
@@ -150,7 +231,7 @@ export default function ProfileScreen({ navigation }) {
               <Text style={styles.metricLabel}>Livros reutilizados</Text>
             </View>
             <View style={styles.metricBadge}>
-              <Text style={styles.metricNumber}>~{impact.paper_saved_kg || 2}kg</Text>
+              <Text style={styles.metricNumber}>~{impact.paper_saved_kg}kg</Text>
               <Text style={styles.metricLabel}>Papel economizado</Text>
             </View>
           </View>
@@ -193,13 +274,17 @@ export default function ProfileScreen({ navigation }) {
         </TouchableOpacity>
 
         {/* Botão Sair da Conta */}
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={() => setLogoutModalVisible(true)}
+          activeOpacity={0.8}
+        >
           <Feather name="log-out" size={20} color="#D32F2F" style={{ marginRight: 8 }} />
           <Text style={styles.logoutButtonText}>Sair da Conta</Text>
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Modal de Edição de Perfil (PUT /users/me) */}
+      {/* Modal de Edição de Perfil */}
       <Modal visible={editModalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
@@ -213,14 +298,56 @@ export default function ProfileScreen({ navigation }) {
               placeholder="Seu nome"
             />
 
+            <Text style={styles.inputLabel}>WhatsApp para Contato (Opcional)</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={editWhatsapp}
+              onChangeText={setEditWhatsapp}
+              placeholder="Ex: 81988887777"
+              placeholderTextColor="#BDBDBD"
+              keyboardType="phone-pad"
+            />
+
             <Text style={styles.inputLabel}>CEP</Text>
             <TextInput
               style={styles.modalInput}
               value={editCep}
               onChangeText={setEditCep}
-              placeholder="51020-010"
+              placeholder="Digite seu CEP (ex: 51020-010)"
+              placeholderTextColor="#BDBDBD"
               keyboardType="numeric"
             />
+
+            <Text style={styles.inputLabel}>Objetivos de Uso</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+              {['comprar', 'vender', 'trocar', 'doar'].map(obj => {
+                const isSelected = editObjectives.includes(obj);
+                return (
+                  <TouchableOpacity
+                    key={obj}
+                    onPress={() => {
+                      if (isSelected) {
+                        setEditObjectives(editObjectives.filter(o => o !== obj));
+                      } else {
+                        setEditObjectives([...editObjectives, obj]);
+                      }
+                    }}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 16,
+                      backgroundColor: isSelected ? '#1E88E5' : '#F5F5F6',
+                      borderWidth: 1,
+                      borderColor: isSelected ? '#1E88E5' : '#E0E0E0',
+                    }}
+                  >
+                    <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 13, color: isSelected ? '#FFF' : '#333' }}>
+                      {obj.charAt(0).toUpperCase() + obj.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
 
             <View style={styles.modalButtonsRow}>
               <TouchableOpacity
@@ -239,6 +366,45 @@ export default function ProfileScreen({ navigation }) {
                   <ActivityIndicator color="#FFF" />
                 ) : (
                   <Text style={styles.modalSaveText}>Salvar Alterações</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Pop-up Modal de Confirmação de Logout */}
+      <Modal visible={logoutModalVisible} animationType="fade" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={{ alignItems: 'center', marginBottom: 16 }}>
+              <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#FFEBEE', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
+                <Feather name="log-out" size={24} color="#D32F2F" />
+              </View>
+              <Text style={styles.modalTitle}>Sair da Conta</Text>
+              <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 14, color: '#666', textAlign: 'center', lineHeight: 20 }}>
+                Deseja realmente encerara sua sessão no GiraLivro?
+              </Text>
+            </View>
+
+            <View style={styles.modalButtonsRow}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setLogoutModalVisible(false)}
+                disabled={loggingOut}
+              >
+                <Text style={styles.modalCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalSaveButton, { backgroundColor: '#D32F2F' }]}
+                onPress={handleConfirmLogout}
+                disabled={loggingOut}
+              >
+                {loggingOut ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.modalSaveText}>Sair Agora</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -411,6 +577,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     marginTop: 20,
+    backgroundColor: '#FFEBEE',
+    borderRadius: 12,
   },
   logoutButtonText: {
     fontFamily: 'Inter_600SemiBold',
@@ -426,14 +594,14 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 24,
   },
   modalTitle: {
     fontFamily: 'Nunito_700Bold',
     fontSize: 20,
     color: '#333',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   inputLabel: {
     fontFamily: 'Inter_600SemiBold',
@@ -454,12 +622,13 @@ const styles = StyleSheet.create({
   modalButtonsRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
+    gap: 12,
     marginTop: 12,
   },
   modalCancelButton: {
     paddingVertical: 12,
     paddingHorizontal: 18,
-    marginRight: 8,
+    borderRadius: 8,
   },
   modalCancelText: {
     fontFamily: 'Inter_600SemiBold',

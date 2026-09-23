@@ -10,86 +10,57 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { api } from '../services/api';
+import { supabase } from '../services/supabase';
+import { getAddressFromCep } from '../services/cep';
 
 export default function HomeScreen({ navigation }) {
-  const [feed, setFeed] = useState(null);
-  const [userProfile, setUserProfile] = useState(null);
+  const [listings, setListings] = useState([]);
+  const [userName, setUserName] = useState('');
+  const [locationText, setLocationText] = useState('');
   const [loading, setLoading] = useState(true);
 
   const fetchHomeData = async () => {
     setLoading(true);
     try {
-      const [feedRes, profileRes] = await Promise.allSettled([
-        api.get('/feed/home'),
-        api.get('/users/me'),
-      ]);
+      // Pegar dados do usuário logado
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, zip_code')
+          .eq('id', user.id)
+          .single();
 
-      if (feedRes.status === 'fulfilled') {
-        setFeed(feedRes.value.data);
+        const name = profile?.full_name || user.user_metadata?.full_name || 'Leitor(a)';
+        const zip = profile?.zip_code || user.user_metadata?.cep || '';
+        setUserName(name.split(' ')[0].toUpperCase());
+
+        if (zip) {
+          const addr = await getAddressFromCep(zip);
+          if (addr?.formatted) {
+            setLocationText(addr.formatted);
+          } else {
+            setLocationText(`CEP ${zip}`);
+          }
+        } else {
+          setLocationText('');
+        }
       }
-      if (profileRes.status === 'fulfilled') {
-        setUserProfile(profileRes.value.data);
-      }
+
+      // Buscar anúncios ativos com dados dos livros
+      const { data: listingsData, error } = await supabase
+        .from('listings')
+        .select('*, books(*)')
+        .eq('status', 'ATIVO')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+      setListings(listingsData || []);
     } catch (error) {
       console.log('Error fetching home data:', error);
+      setListings([]);
     } finally {
-      if (!feed) {
-        setFeed({
-          recommended: [
-            {
-              id: 'h1',
-              title: 'Neon Echo',
-              author: 'Eliza Reed',
-              cover_url: 'https://covers.openlibrary.org/b/id/8231856-M.jpg',
-              modality: 'TROCA',
-              condition: 'Excelente',
-              neighborhood: 'Boa Viagem',
-              distance_km: 0.8,
-              genre: 'Sci-Fi',
-            },
-            {
-              id: 'h2',
-              title: 'Throne of Shadows',
-              author: 'Elyon B. Drake',
-              cover_url: 'https://covers.openlibrary.org/b/id/10454955-M.jpg',
-              modality: 'VENDA',
-              price: 45.0,
-              condition: 'Novo',
-              neighborhood: 'Boa Viagem',
-              distance_km: 1.2,
-              genre: 'Fantasia',
-            },
-          ],
-          wishlist_matches: [
-            {
-              id: 'w1',
-              title: 'The Eternal Garden',
-              author: 'Eleanor Vance',
-              cover_url: 'https://covers.openlibrary.org/b/id/153253-M.jpg',
-              modality: 'TROCA',
-              condition: 'Novo',
-              neighborhood: 'Boa Viagem',
-              distance_km: 0.4,
-              genre: 'Ficção',
-            },
-          ],
-          highlights: [
-            {
-              id: 'hl1',
-              title: 'Night Lights',
-              author: 'Clara Thorne',
-              cover_url: 'https://covers.openlibrary.org/b/id/9255566-M.jpg',
-              modality: 'VENDA',
-              price: 30.0,
-              condition: 'Bom',
-              neighborhood: 'Pina',
-              distance_km: 1.5,
-              genre: 'Romance',
-            },
-          ],
-        });
-      }
       setLoading(false);
     }
   };
@@ -98,16 +69,21 @@ export default function HomeScreen({ navigation }) {
     fetchHomeData();
   }, []);
 
-  const userName = userProfile?.full_name ? userProfile.full_name.split(' ')[0].toUpperCase() : 'CAMILA';
-  const locationText = userProfile?.cep ? `CEP ${userProfile.cep}` : 'Boa Viagem';
-
   return (
     <SafeAreaView style={styles.container}>
       {/* Header Logado */}
       <View style={styles.header}>
         <View style={styles.headerUser}>
-          <Text style={styles.greetingEyebrow}>OLÁ, {userName}!</Text>
-          <Text style={styles.locationSub}>📍 Buscando perto de {locationText}</Text>
+          <Text style={styles.greetingEyebrow}>OLÁ, {userName || 'LEITOR(A)'}!</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
+            {locationText ? (
+              <Text style={styles.locationSub}>📍 Buscando perto de {locationText}</Text>
+            ) : (
+              <Text style={[styles.locationSub, { color: '#828282', fontStyle: 'italic' }]}>
+                📍 CEP não cadastrado — toque para adicionar
+              </Text>
+            )}
+          </TouchableOpacity>
         </View>
 
         <View style={styles.headerIconsRow}>
@@ -123,71 +99,56 @@ export default function HomeScreen({ navigation }) {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {loading ? (
           <ActivityIndicator size="large" color="#1E88E5" style={{ marginVertical: 32 }} />
+        ) : listings.length === 0 ? (
+          <View style={{ alignItems: 'center', paddingVertical: 60 }}>
+            <MaterialCommunityIcons name="book-open-page-variant-outline" size={64} color="#BDBDBD" />
+            <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: 18, color: '#666', marginTop: 16 }}>
+              Nenhum livro disponível ainda
+            </Text>
+            <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 14, color: '#9E9E9E', marginTop: 8, textAlign: 'center', paddingHorizontal: 40 }}>
+              Seja o primeiro a cadastrar um livro e iniciar a comunidade GiraLivro na sua região!
+            </Text>
+            <TouchableOpacity
+              style={{ backgroundColor: '#1E88E5', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24, marginTop: 20 }}
+              onPress={() => navigation.navigate('AddBookPhoto')}
+            >
+              <Text style={{ fontFamily: 'Inter_600SemiBold', color: '#FFF', fontSize: 15 }}>Cadastrar Meu Primeiro Livro</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           <>
-            {/* Carousel Recomendados */}
+            {/* Livros Disponíveis */}
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Recomendados para você</Text>
+              <Text style={styles.sectionTitle}>Livros disponíveis</Text>
               <TouchableOpacity onPress={() => navigation.navigate('Search')}>
                 <Text style={styles.seeAllText}>Ver todos</Text>
               </TouchableOpacity>
             </View>
 
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carouselRow}>
-              {feed?.recommended?.map((book) => (
-                <View key={book.id} style={styles.carouselCard}>
-                  <Image source={{ uri: book.cover_url }} style={styles.cardCover} resizeMode="cover" />
+              {listings.map((listing) => (
+                <View key={listing.id} style={styles.carouselCard}>
+                  {listing.books?.cover_image_url ? (
+                    <Image source={{ uri: listing.books.cover_image_url }} style={styles.cardCover} resizeMode="cover" />
+                  ) : (
+                    <View style={[styles.cardCover, { backgroundColor: '#E3F2FD', justifyContent: 'center', alignItems: 'center' }]}>
+                      <Feather name="book" size={32} color="#1E88E5" />
+                    </View>
+                  )}
                   <View style={styles.cardBadges}>
-                    <Text style={styles.cardModality}>{book.modality}</Text>
+                    <Text style={styles.cardModality}>{listing.transaction_type}</Text>
                   </View>
-                  <Text style={styles.cardTitle} numberOfLines={1}>{book.title}</Text>
-                  <Text style={styles.cardAuthor}>{book.author}</Text>
+                  <Text style={styles.cardTitle} numberOfLines={1}>{listing.books?.title || 'Sem título'}</Text>
+                  <Text style={styles.cardAuthor}>{listing.books?.author || ''}</Text>
+                  {listing.price ? (
+                    <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#43A047', marginBottom: 4 }}>R$ {Number(listing.price).toFixed(2)}</Text>
+                  ) : null}
                   <TouchableOpacity
                     style={styles.cardBtn}
-                    onPress={() => navigation.navigate('BookDetails', { book })}
+                    onPress={() => navigation.navigate('BookDetails', { book: { ...listing.books, ...listing } })}
                   >
                     <Text style={styles.cardBtnText}>Ver Detalhes</Text>
                   </TouchableOpacity>
-                </View>
-              ))}
-            </ScrollView>
-
-            {/* Match com Wishlist */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Match com sua Wishlist</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Wishlist')}>
-                <Text style={styles.seeAllText}>Ver Wishlist</Text>
-              </TouchableOpacity>
-            </View>
-
-            {feed?.wishlist_matches?.map((item) => (
-              <View key={item.id} style={styles.wishlistMatchCard}>
-                <Image source={{ uri: item.cover_url }} style={styles.wishlistCover} resizeMode="cover" />
-                <View style={styles.wishlistBody}>
-                  <Text style={styles.wishlistTitle}>{item.title}</Text>
-                  <Text style={styles.wishlistAuthor}>{item.author}</Text>
-                  <Text style={styles.wishlistLoc}>📍 Boa Viagem ({item.distance_km}km)</Text>
-                  <TouchableOpacity
-                    style={styles.negotiateBtn}
-                    onPress={() => navigation.navigate('BookDetails', { book: item })}
-                  >
-                    <Text style={styles.negotiateBtnText}>Negociar Agora</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
-
-            {/* Destaques na sua região */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Destaques na sua região</Text>
-            </View>
-
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carouselRow}>
-              {feed?.highlights?.map((book) => (
-                <View key={book.id} style={styles.highlightCard}>
-                  <Image source={{ uri: book.cover_url }} style={styles.highlightCover} resizeMode="cover" />
-                  <Text style={styles.cardTitle} numberOfLines={1}>{book.title}</Text>
-                  <Text style={styles.cardAuthor}>A {book.distance_km}km de distância</Text>
                 </View>
               ))}
             </ScrollView>
@@ -333,64 +294,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#1E88E5',
   },
-  wishlistMatchCard: {
-    flexDirection: 'row',
-    backgroundColor: '#FFF3E0',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#FFE0B2',
-    marginBottom: 12,
-  },
-  wishlistCover: {
-    width: 65,
-    height: 90,
-    borderRadius: 6,
-    marginRight: 14,
-  },
-  wishlistBody: {
-    flex: 1,
-  },
-  wishlistTitle: {
-    fontFamily: 'Nunito_700Bold',
-    fontSize: 16,
-    color: '#E65100',
-  },
-  wishlistAuthor: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 13,
-    color: '#BF360C',
-  },
-  wishlistLoc: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 12,
-    color: '#E65100',
-    marginTop: 2,
-    marginBottom: 8,
-  },
-  negotiateBtn: {
-    backgroundColor: '#EF6C00',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  negotiateBtnText: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 12,
-    color: '#FFF',
-  },
-  highlightCard: {
-    width: 120,
-    marginRight: 12,
-  },
-  highlightCover: {
-    width: 120,
-    height: 150,
-    borderRadius: 8,
-    marginBottom: 4,
-  },
-  // Bottom Bar
   bottomBar: {
     position: 'absolute',
     bottom: 0,

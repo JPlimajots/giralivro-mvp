@@ -8,10 +8,10 @@ import {
   TextInput,
   Modal,
   ActivityIndicator,
-  Alert
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import api from '../services/api';
+import { supabase } from '../services/supabase';
 import { COLORS } from '../constants/theme';
 
 export default function WishlistScreen({ navigation }) {
@@ -33,10 +33,19 @@ export default function WishlistScreen({ navigation }) {
   const fetchWishlist = async () => {
     setLoading(true);
     try {
-      const response = await api.get('/wishlist');
-      setItems(response.data || []);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('wishlist')
+        .select('*, books(*)')
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      setItems(data || []);
     } catch (err) {
       console.log('Erro ao carregar wishlist:', err);
+      setItems([]);
     } finally {
       setLoading(false);
     }
@@ -50,41 +59,75 @@ export default function WishlistScreen({ navigation }) {
 
     setSubmitting(true);
     try {
-      const payload = {
-        book_title: bookTitle.trim(),
-        author: author.trim() || null,
-        genre: genre.trim() || null,
-        max_price: maxPrice ? parseFloat(maxPrice) : null
-      };
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado.');
 
-      const res = await api.post('/wishlist', payload);
-      setItems(prev => [res.data, ...prev]);
+      // 1. Verificar se o livro já existe em `books`
+      let bookId = null;
+      const { data: existingBook } = await supabase
+        .from('books')
+        .select('id')
+        .eq('title', bookTitle.trim())
+        .maybeSingle();
+
+      if (existingBook) {
+        bookId = existingBook.id;
+      } else {
+        const { data: newBook, error: bErr } = await supabase
+          .from('books')
+          .insert({
+            title: bookTitle.trim(),
+            author: author.trim() || 'Autor não informado',
+          })
+          .select()
+          .single();
+
+        if (bErr) throw bErr;
+        bookId = newBook.id;
+      }
+
+      // 2. Inserir na tabela `wishlist`
+      const { error: wErr } = await supabase
+        .from('wishlist')
+        .upsert({
+          user_id: user.id,
+          book_id: bookId,
+        });
+
+      if (wErr) throw wErr;
+
       setModalVisible(false);
       setBookTitle('');
       setAuthor('');
       setGenre('');
       setMaxPrice('');
+      fetchWishlist();
     } catch (err) {
+      console.log('Error adding to wishlist:', err);
       Alert.alert('Erro', 'Não foi possível adicionar o item à lista de desejos.');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDeleteItem = async (id) => {
+  const handleDeleteItem = async (bookId) => {
     try {
-      await api.delete(`/wishlist/${id}`);
-      setItems(prev => prev.filter(item => item.id !== id));
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from('wishlist')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('book_id', bookId);
+
+      if (error) throw error;
+      fetchWishlist();
     } catch (err) {
       Alert.alert('Erro', 'Não foi possível remover o item.');
     }
   };
 
   const renderItem = ({ item }) => {
-    const formattedMaxPrice = item.max_price
-      ? `Preço máx: R$ ${Number(item.max_price).toFixed(2)}`
-      : 'Aceita Troca / Qualquer Preço';
-
+    const book = item.books || {};
     return (
       <View style={styles.card}>
         <View style={styles.cardHeader}>
@@ -92,14 +135,11 @@ export default function WishlistScreen({ navigation }) {
             <Icon name="bookmark-outline" size={24} color={COLORS.primary} />
           </View>
           <View style={styles.cardInfo}>
-            <Text style={styles.itemTitle}>{item.book_title}</Text>
-            {item.author ? <Text style={styles.itemSubtitle}>{`Autor: ${item.author}`}</Text> : null}
-            {item.genre ? <Text style={styles.itemBadge}>{item.genre}</Text> : null}
-            <Text style={item.max_price ? styles.priceTag : styles.priceTagFlex}>
-              {formattedMaxPrice}
-            </Text>
+            <Text style={styles.itemTitle}>{book.title || 'Sem título'}</Text>
+            {book.author ? <Text style={styles.itemSubtitle}>{`Autor: ${book.author}`}</Text> : null}
+            <Text style={styles.priceTagFlex}>Desejado na comunidade</Text>
           </View>
-          <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDeleteItem(item.id)}>
+          <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDeleteItem(item.book_id)}>
             <Icon name="trash-can-outline" size={22} color={COLORS.danger} />
           </TouchableOpacity>
         </View>
@@ -145,7 +185,7 @@ export default function WishlistScreen({ navigation }) {
       ) : (
         <FlatList
           data={items}
-          keyExtractor={item => item.id}
+          keyExtractor={item => item.book_id}
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
         />
@@ -166,6 +206,7 @@ export default function WishlistScreen({ navigation }) {
             <TextInput
               style={styles.input}
               placeholder="Ex: O Senhor dos Anéis"
+              placeholderTextColor="#9E9E9E"
               value={bookTitle}
               onChangeText={setBookTitle}
             />
@@ -174,25 +215,9 @@ export default function WishlistScreen({ navigation }) {
             <TextInput
               style={styles.input}
               placeholder="Ex: J.R.R. Tolkien"
+              placeholderTextColor="#9E9E9E"
               value={author}
               onChangeText={setAuthor}
-            />
-
-            <Text style={styles.label}>Gênero (Opcional)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Ex: Fantasia, Ficção, Acadêmico"
-              value={genre}
-              onChangeText={setGenre}
-            />
-
-            <Text style={styles.label}>Valor Máximo em R$ (Opcional)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Ex: 35.00 (Deixe em branco para troca/doação)"
-              keyboardType="numeric"
-              value={maxPrice}
-              onChangeText={setMaxPrice}
             />
 
             <TouchableOpacity
@@ -329,23 +354,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.subtitle,
     marginTop: 2
-  },
-  itemBadge: {
-    fontSize: 11,
-    color: COLORS.primary,
-    fontWeight: '600',
-    marginTop: 4,
-    backgroundColor: '#F0F7FF',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4
-  },
-  priceTag: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: COLORS.secondary,
-    marginTop: 6
   },
   priceTagFlex: {
     fontSize: 12,

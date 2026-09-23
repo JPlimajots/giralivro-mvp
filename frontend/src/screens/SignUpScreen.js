@@ -12,11 +12,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { api } from '../services/api';
 import { supabase } from '../services/supabase';
 
 export default function SignUpScreen({ navigation, route }) {
-  const { onboardingCep = '51020-010', onboardingGenres = ['Ficção', 'Romance'] } = route.params || {};
+  const { onboardingObjectives = [], onboardingCep = '', onboardingGenres = [], interestedBookId = null } = route.params || {};
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -37,52 +36,65 @@ export default function SignUpScreen({ navigation, route }) {
 
     setLoading(true);
     try {
-      // 1. Tenta chamar o backend FastAPI /auth/signup
-      let token = null;
-      try {
-        const response = await api.post('/auth/signup', {
+      // Cadastro direto no Supabase (sem precisar de backend)
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password: password,
+        options: {
+          data: {
+            full_name: fullName.trim(),
+            cep: cep.trim(),
+            favorite_genres: onboardingGenres,
+            objectives: onboardingObjectives,
+          },
+        },
+      });
+      if (error) throw error;
+
+      // Criar perfil na tabela profiles do banco de dados (salvando array de objetivos e CEP)
+      if (data?.user) {
+        await supabase.from('profiles').upsert({
+          id: data.user.id,
           full_name: fullName.trim(),
           email: email.trim(),
-          password: password,
-          cep: cep.trim(),
-          favorite_genres: onboardingGenres,
+          zip_code: cep.trim(),
+          objectives: onboardingObjectives,
         });
-        token = response.data.access_token;
-      } catch (errApi) {
-        console.warn('Backend signup error, attempting direct Supabase signup:', errApi);
-        // Fallback direto via Supabase Client
-        const { data, error } = await supabase.auth.signUp({
-          email: email.trim(),
-          password: password,
-          options: {
-            data: {
-              full_name: fullName.trim(),
-            },
-          },
-        });
-        if (error) throw error;
-        token = data.session?.access_token || 'mock-jwt-token-registered';
+
+        // Se veio de um livro real da vitrine, salva na wishlist do novo usuário
+        if (interestedBookId) {
+          try {
+            await supabase.from('wishlist').upsert({
+              user_id: data.user.id,
+              book_id: interestedBookId,
+            });
+          } catch (wErr) {
+            console.log('Notice: Auto wishlist error:', wErr);
+          }
+        }
       }
+
+      const token = data?.session?.access_token;
 
       if (token) {
         await AsyncStorage.setItem('@giralivro:token', token);
-        Alert.alert('Conta Criada!', 'Seu cadastro foi realizado com sucesso!', [
-          {
-            text: 'Ir para meu Perfil',
-            onPress: () => {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Profile' }],
-              });
-            },
-          },
-        ]);
+        Alert.alert('Conta Criada!', 'Seu cadastro foi realizado com sucesso!');
+        // O listener do App.js vai detectar o login e navegar automaticamente
+      } else if (data?.user) {
+        // Supabase exige verificação de e-mail (sem token imediato)
+        Alert.alert(
+          'Confirme seu e-mail',
+          'Conta criada! Por favor, verifique seu e-mail para confirmar o cadastro.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        throw new Error('Não foi possível obter a sessão após o cadastro.');
       }
     } catch (error) {
       console.log('SignUp error:', error);
       Alert.alert(
         'Erro no Cadastro',
-        error.response?.data?.detail || error.message || 'Não foi possível concluir o cadastro.'
+        error.message || 'Não foi possível concluir o cadastro. Verifique sua conexão ou tente outro e-mail.'
       );
     } finally {
       setLoading(false);
@@ -162,12 +174,17 @@ export default function SignUpScreen({ navigation, route }) {
         </View>
 
         {/* Banner de preferências salvas */}
-        <View style={styles.preferencesBadge}>
-          <Feather name="check-circle" size={18} color="#43A047" style={{ marginRight: 8 }} />
-          <Text style={styles.preferencesText}>
-            Gêneros selecionados: {onboardingGenres.join(', ')}
-          </Text>
-        </View>
+        {onboardingObjectives.length > 0 || onboardingGenres.length > 0 ? (
+          <View style={styles.preferencesBadge}>
+            <Feather name="check-circle" size={18} color="#43A047" style={{ marginRight: 8 }} />
+            <Text style={styles.preferencesText}>
+              {[
+                onboardingObjectives.length > 0 ? `Objetivos: ${onboardingObjectives.join(', ')}` : '',
+                onboardingGenres.length > 0 ? `Gêneros: ${onboardingGenres.join(', ')}` : '',
+              ].filter(Boolean).join(' • ')}
+            </Text>
+          </View>
+        ) : null}
 
         {/* Botão Finalizar Cadastro */}
         <TouchableOpacity

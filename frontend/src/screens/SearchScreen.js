@@ -11,13 +11,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { api } from '../services/api';
+import { supabase } from '../services/supabase';
+import { getAddressFromCep } from '../services/cep';
 import FilterBottomSheet from './FilterBottomSheet';
 
 export default function SearchScreen({ navigation }) {
   const [queryText, setQueryText] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [locationTagText, setLocationTagText] = useState('');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState({
     genre: 'todos',
@@ -25,45 +27,65 @@ export default function SearchScreen({ navigation }) {
     maxDistance: 10,
   });
 
+  useEffect(() => {
+    const fetchUserLoc = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('zip_code')
+            .eq('id', user.id)
+            .single();
+          const zip = profile?.zip_code || user.user_metadata?.cep;
+          if (zip) {
+            const addr = await getAddressFromCep(zip);
+            if (addr?.formatted) {
+              setLocationTagText(`📍 ${addr.formatted}`);
+            } else {
+              setLocationTagText(`📍 CEP ${zip}`);
+            }
+          } else {
+            setLocationTagText('');
+          }
+        }
+      } catch (e) {}
+    };
+    fetchUserLoc();
+  }, []);
+
   const performSearch = async () => {
     setLoading(true);
     try {
-      const response = await api.get('/search', {
-        params: {
-          q: queryText || undefined,
-          genre: appliedFilters.genre !== 'todos' ? appliedFilters.genre : undefined,
-          modality: appliedFilters.modality !== 'todas' ? appliedFilters.modality : undefined,
-          max_distance: appliedFilters.maxDistance,
-        },
-      });
-      setResults(response.data);
+      let query = supabase
+        .from('listings')
+        .select('*, books(*)')
+        .eq('status', 'ATIVO')
+        .order('created_at', { ascending: false });
+
+      if (appliedFilters.modality && appliedFilters.modality !== 'todas') {
+        query = query.ilike('transaction_type', `%${appliedFilters.modality}%`);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      let filtered = data || [];
+
+      if (queryText.trim()) {
+        const term = queryText.trim().toLowerCase();
+        filtered = filtered.filter(item => {
+          const title = item.books?.title?.toLowerCase() || '';
+          const author = item.books?.author?.toLowerCase() || '';
+          const isbn = item.books?.isbn || '';
+          return title.includes(term) || author.includes(term) || isbn.includes(term);
+        });
+      }
+
+      setResults(filtered);
     } catch (error) {
       console.log('Search error:', error);
-      setResults([
-        {
-          id: 's1',
-          title: 'O Hobbit',
-          author: 'J.R.R. Tolkien',
-          cover: 'https://covers.openlibrary.org/b/id/8406786-M.jpg',
-          modality: 'TROCA',
-          condition: 'Excelente',
-          neighborhood: 'Boa Viagem',
-          distance_km: 1.2,
-          genre: 'Fantasia',
-        },
-        {
-          id: 's2',
-          title: 'Duna',
-          author: 'Frank Herbert',
-          cover: 'https://covers.openlibrary.org/b/id/10523450-M.jpg',
-          modality: 'VENDA OU TROCA',
-          price: 80.0,
-          condition: 'Novo',
-          neighborhood: 'Pina',
-          distance_km: 2.5,
-          genre: 'Sci-Fi',
-        },
-      ]);
+      setResults([]);
     } finally {
       setLoading(false);
     }
@@ -103,36 +125,52 @@ export default function SearchScreen({ navigation }) {
           <Text style={styles.resultsCountText}>
             {results.length} resultado(s) encontrado(s)
           </Text>
-          <Text style={styles.locationTag}>📍 Boa Viagem</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
+            {locationTagText ? (
+              <Text style={styles.locationTag}>{locationTagText}</Text>
+            ) : (
+              <Text style={[styles.locationTag, { color: '#828282', fontStyle: 'italic' }]}>
+                📍 CEP não cadastrado — toque para adicionar
+              </Text>
+            )}
+          </TouchableOpacity>
         </View>
 
         {loading ? (
           <ActivityIndicator size="large" color="#1E88E5" style={{ marginVertical: 32 }} />
         ) : (
           <View style={styles.resultsList}>
-            {results.map((book) => (
+            {results.map((item) => (
               <TouchableOpacity
-                key={book.id}
+                key={item.id}
                 style={styles.bookCard}
-                onPress={() => navigation.navigate('BookDetails', { book })}
+                onPress={() => navigation.navigate('BookDetails', { book: { ...item.books, ...item } })}
                 activeOpacity={0.8}
               >
-                <Image source={{ uri: book.cover }} style={styles.bookCover} resizeMode="cover" />
+                {item.books?.cover_image_url ? (
+                  <Image source={{ uri: item.books.cover_image_url }} style={styles.bookCover} resizeMode="cover" />
+                ) : (
+                  <View style={[styles.bookCover, { backgroundColor: '#E3F2FD', justifyContent: 'center', alignItems: 'center' }]}>
+                    <Feather name="book" size={28} color="#1E88E5" />
+                  </View>
+                )}
 
                 <View style={styles.bookInfo}>
-                  <Text style={styles.bookTitle} numberOfLines={1}>{book.title}</Text>
-                  <Text style={styles.bookAuthor}>{book.author}</Text>
-                  <Text style={styles.bookLoc}>{book.neighborhood} • Aprox. {book.distance_km}km</Text>
+                  <Text style={styles.bookTitle} numberOfLines={1}>{item.books?.title || 'Sem título'}</Text>
+                  <Text style={styles.bookAuthor}>{item.books?.author || ''}</Text>
+                  <Text style={styles.bookLoc}>Disponível na sua região</Text>
 
                   <View style={styles.badgeRow}>
                     <View style={styles.modalityBadge}>
                       <Text style={styles.modalityText}>
-                        {book.modality} {book.price ? `R$ ${book.price}` : ''}
+                        {item.transaction_type} {item.price ? `R$ ${Number(item.price).toFixed(2)}` : ''}
                       </Text>
                     </View>
-                    <View style={styles.conditionBadge}>
-                      <Text style={styles.conditionText}>{book.condition}</Text>
-                    </View>
+                    {item.condition ? (
+                      <View style={styles.conditionBadge}>
+                        <Text style={styles.conditionText}>{item.condition}</Text>
+                      </View>
+                    ) : null}
                   </View>
                 </View>
               </TouchableOpacity>
@@ -205,6 +243,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+    flexWrap: 'wrap',
+    gap: 8,
   },
   resultsCountText: {
     fontFamily: 'Inter_600SemiBold',
