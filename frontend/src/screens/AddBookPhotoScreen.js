@@ -7,11 +7,14 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  LogBox,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../services/supabase';
+
+LogBox.ignoreLogs(["Response.blob() is using React Native's Blob"]);
 
 export default function AddBookPhotoScreen({ navigation }) {
   const [imageUri, setImageUri] = useState(null);
@@ -66,22 +69,25 @@ export default function AddBookPhotoScreen({ navigation }) {
 
     try {
       // Tenta upload para o Bucket do Supabase Storage 'book-covers'
-      const response = await fetch(imageUri);
-      const blob = await response.blob();
       const filename = `cover_${Date.now()}.jpg`;
+
+      const response = await fetch(imageUri);
+      const fileData = await response.arrayBuffer();
 
       const { data, error } = await supabase.storage
         .from('book-covers')
-        .upload(filename, blob, { contentType: 'image/jpeg' });
-
+        .upload(filename, fileData, { contentType: 'image/jpeg' });
+      
       if (!error && data) {
         const { data: urlData } = supabase.storage.from('book-covers').getPublicUrl(filename);
         if (urlData?.publicUrl) {
           publicUrl = urlData.publicUrl;
         }
+      } else if (error) {
+        console.log('Upload error:', error);
       }
     } catch (err) {
-      console.warn('Fallback para imagem local uri:', err);
+      console.warn('Erro ao processar imagem:', err);
     } finally {
       setUploading(false);
       navigation.navigate('AddListingDetails', { coverUrl: publicUrl });
