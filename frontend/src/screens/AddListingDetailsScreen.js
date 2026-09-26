@@ -42,25 +42,29 @@ export default function AddListingDetailsScreen({ navigation, route }) {
 
     setSearchingIsbn(true);
     try {
-      const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn.trim()}`);
+      const cleanIsbn = isbn.replace(/\D/g, '');
+      
+      // NOVA API: Open Library (Sem limites de cota e sem necessidade de chaves)
+      const res = await fetch(`https://openlibrary.org/search.json?q=${cleanIsbn}`);
       const data = await res.json();
-      if (data.items && data.items.length > 0) {
-        const volumeInfo = data.items[0].volumeInfo;
-        const fetchedTitle = volumeInfo.title || '';
-        const fetchedAuthor = volumeInfo.authors ? volumeInfo.authors.join(', ') : '';
-        const fetchedDesc = volumeInfo.description || '';
+      
+      if (data.docs && data.docs.length > 0) {
+        // A Open Library retorna os resultados dentro de 'docs'
+        const bookData = data.docs[0];
+        const fetchedTitle = bookData.title || '';
+        const fetchedAuthor = bookData.author_name ? bookData.author_name.join(', ') : '';
+        
         setTitle(fetchedTitle);
         setAuthor(fetchedAuthor);
-        setDescription(fetchedDesc);
-        if (volumeInfo.categories && volumeInfo.categories.length > 0) {
-          setGenre(volumeInfo.categories[0]);
-        }
+        // Mantemos os campos de descrição e género livres, pois a Open Library
+        // foca-se mais nos dados bibliográficos exatos (título e autor).
+        
         Alert.alert('Obra Encontrada!', `Preenchemos automaticamente: "${fetchedTitle}" por ${fetchedAuthor}`);
       } else {
-        Alert.alert('ISBN não encontrado', 'Não encontramos este ISBN na API pública. Preencha o título e autor manualmente.');
+        Alert.alert('ISBN não encontrado', 'Não encontramos este ISBN na base pública. Preencha o título e autor manualmente.');
       }
     } catch (err) {
-      Alert.alert('ISBN não encontrado', 'Não foi possível buscar os metadados do ISBN. Preencha manualmente.');
+      Alert.alert('Erro de Conexão', 'Não foi possível buscar os metadados do ISBN. Preencha manualmente.');
     } finally {
       setSearchingIsbn(false);
     }
@@ -155,7 +159,7 @@ export default function AddListingDetailsScreen({ navigation, route }) {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* ISBN Auto-fill */}
-        <Text style={styles.label}>Buscar metadados por ISBN (Google Books)</Text>
+        <Text style={styles.label}>Buscar metadados por ISBN (Open Library)</Text>
         <View style={styles.isbnRow}>
           <TextInput
             style={styles.isbnInput}
