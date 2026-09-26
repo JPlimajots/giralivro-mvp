@@ -56,8 +56,6 @@ export default function AddListingDetailsScreen({ navigation, route }) {
         
         setTitle(fetchedTitle);
         setAuthor(fetchedAuthor);
-        // Mantemos os campos de descrição e género livres, pois a Open Library
-        // foca-se mais nos dados bibliográficos exatos (título e autor).
         
         Alert.alert('Obra Encontrada!', `Preenchemos automaticamente: "${fetchedTitle}" por ${fetchedAuthor}`);
       } else {
@@ -76,17 +74,30 @@ export default function AddListingDetailsScreen({ navigation, route }) {
       return;
     }
 
-    let modalityList = [];
-    if (isTrade) modalityList.push('TROCA');
-    if (isSale) modalityList.push('VENDA');
-    if (isDonation) modalityList.push('DOAÇÃO');
-
-    if (modalityList.length === 0) {
+    if (!isTrade && !isSale && !isDonation) {
       Alert.alert('Modalidade', 'Selecione ao menos uma modalidade (Troca, Venda ou Doação).');
       return;
     }
 
-    const modality = modalityList.join(' OU ');
+    // Traduz as combinações dos switches estritamente para os ENUMs do banco
+    let dbModality = 'TROCA'; 
+    if (isDonation) {
+      // Doação geralmente anula a venda, então tem prioridade máxima
+      dbModality = 'DOACAO';
+    } else if (isSale && isTrade) {
+      dbModality = 'VENDA OU TROCA';
+    } else if (isSale) {
+      dbModality = 'VENDA';
+    } else if (isTrade) {
+      dbModality = 'TROCA';
+    }
+
+    const conditionMap = {
+      'Novo': 'NOVO',
+      'Excelente': 'EXCELENTE',
+      'Com marcas': 'COM_MARCAS' // Caso tenha criado no banco como 'USADO', mude aqui.
+    };
+    const dbCondition = conditionMap[condition];
 
     setPublishing(true);
     try {
@@ -126,8 +137,8 @@ export default function AddListingDetailsScreen({ navigation, route }) {
         .insert({
           user_id: user.id,
           book_id: bookId,
-          transaction_type: modality,
-          condition: condition,
+          transaction_type: dbModality,
+          condition: dbCondition,
           price: isSale && price ? parseFloat(price) : null,
           observations: description,
           status: 'ATIVO',
