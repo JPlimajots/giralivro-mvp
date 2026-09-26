@@ -20,6 +20,7 @@
     "axios": "^1.7.9",
     "expo": "~57.0.0",
     "expo-asset": "~57.0.16",
+    "expo-blob": "^57.0.2",
     "expo-constants": "~57.0.17",
     "expo-font": "~57.0.3",
     "expo-image-picker": "~57.0.16",
