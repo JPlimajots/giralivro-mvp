@@ -8,12 +8,13 @@ import {
   Image,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from '../services/supabase';
 import { getAddressFromCep } from '../services/cep';
 
 export default function HomeScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
   const [listings, setListings] = useState([]);
   const [userName, setUserName] = useState('');
   const [locationText, setLocationText] = useState('');
@@ -157,7 +158,7 @@ export default function HomeScreen({ navigation }) {
       </ScrollView>
 
       {/* Bottom Bar de Navegação */}
-      <View style={styles.bottomBar}>
+      <View style={[styles.bottomBar, { height: 64 + insets.bottom, padding: insets.bottom}]}>
         <TouchableOpacity style={styles.bottomTabActive}>
           <Feather name="home" size={20} color="#1E88E5" />
           <Text style={styles.bottomTabActiveText}>Início</Text>
@@ -299,7 +300,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 64,
     backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
