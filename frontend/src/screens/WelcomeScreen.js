@@ -55,6 +55,13 @@ export default function WelcomeScreen({ navigation }) {
                     <Feather name="arrow-right" size={20} color="#FFFFFF" /> 
                 </TouchableOpacity>
 
+                <View style={styles.loginLinkContainer}>
+                  <Text style={styles.loginText}>Já tem uma conta? </Text>
+                  <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                    <Text style={styles.loginLink}>Fazer Login</Text>
+                  </TouchableOpacity>
+                </View>
+
                 <Text style={styles.footerText}>
                     Economia circular. Sustentável e inteligente.
                 </Text>
@@ -179,5 +186,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#828282',
     textAlign: 'center',
+  },
+  loginLinkContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  loginText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    color: '#666666',
+  },
+  loginLink: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
+    color: '#1E88E5',
   },
 });
