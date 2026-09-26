@@ -13,6 +13,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../services/supabase';
+import * as FileSystem from 'expo-file-system/legacy';
+import { decode } from 'base64-arraybuffer';
 
 LogBox.ignoreLogs(["Response.blob() is using React Native's Blob"]);
 
@@ -68,16 +70,14 @@ export default function AddBookPhotoScreen({ navigation }) {
     let publicUrl = imageUri;
 
     try {
-      // Tenta upload para o Bucket do Supabase Storage 'book-covers'
       const filename = `cover_${Date.now()}.jpg`;
-
-      const response = await fetch(imageUri);
-      const fileData = await response.arrayBuffer();
+      
+      const base64 = await FileSystem.readAsStringAsync(imageUri, { encoding: 'base64' });
 
       const { data, error } = await supabase.storage
         .from('book-covers')
-        .upload(filename, fileData, { contentType: 'image/jpeg' });
-      
+        .upload(filename, decode(base64), { contentType: 'image/jpeg' });
+
       if (!error && data) {
         const { data: urlData } = supabase.storage.from('book-covers').getPublicUrl(filename);
         if (urlData?.publicUrl) {
