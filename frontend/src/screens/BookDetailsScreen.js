@@ -100,7 +100,13 @@ export default function BookDetailsScreen({ route, navigation }) {
   const modality = listing.transaction_type || listing.modality || 'DISPONÍVEL';
   const condition = listing.condition || 'Excelente';
   const price = listing.price;
-  const formattedPrice = price ? `R$ ${Number(price).toFixed(2)}` : 'GRÁTIS (Doação)';
+  const formattedPrice = modality === 'DOAÇÃO'
+    ? 'GRÁTIS (Doação)'
+    : modality === 'TROCA'
+      ? 'Disponível para Troca'
+      : modality === 'VENDA OU TROCA'
+        ? `R$ ${Number(price || 0).toFixed(2)} ou Troca`
+        : `R$ ${Number(price || 0).toFixed(2)}`;
 
   return (
     <View style={styles.container}>
