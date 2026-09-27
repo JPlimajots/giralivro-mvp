@@ -21,18 +21,24 @@ export default function AddListingDetailsScreen({ navigation, route }) {
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [description, setDescription] = useState('');
-  const [genre, setGenre] = useState('Ficção');
+  const [genre, setGenre] = useState(''); 
   const [searchingIsbn, setSearchingIsbn] = useState(false);
 
-  // Modalidade Switches
   const [isTrade, setIsTrade] = useState(true);
   const [isSale, setIsSale] = useState(false);
   const [isDonation, setIsDonation] = useState(false);
   const [price, setPrice] = useState('');
 
-  // Conservação
   const [condition, setCondition] = useState('Excelente');
   const [publishing, setPublishing] = useState(false);
+
+  // 1. Lista de Gêneros Traduzida para PT-BR
+  const CATEGORIES = [
+    'Fantasia', 'Ficção Histórica', 'Terror', 'Humor', 'Literatura', 
+    'Magia', 'Mistério e Detetive', 'Teatro', 'Poesia', 
+    'Romance', 'Ficção Científica', 'Contos', 'Suspense', 
+    'Jovem Adulto', 'Outros'
+  ];
 
   const handleLookupIsbn = async () => {
     if (!isbn.trim()) {
@@ -44,18 +50,78 @@ export default function AddListingDetailsScreen({ navigation, route }) {
     try {
       const cleanIsbn = isbn.replace(/\D/g, '');
       
-      // NOVA API: Open Library (Sem limites de cota e sem necessidade de chaves)
       const res = await fetch(`https://openlibrary.org/search.json?q=${cleanIsbn}`);
       const data = await res.json();
       
       if (data.docs && data.docs.length > 0) {
-        // A Open Library retorna os resultados dentro de 'docs'
         const bookData = data.docs[0];
         const fetchedTitle = bookData.title || '';
         const fetchedAuthor = bookData.author_name ? bookData.author_name.join(', ') : '';
         
         setTitle(fetchedTitle);
         setAuthor(fetchedAuthor);
+        
+        // 1. Tenta pegar os assuntos da busca rápida (subject sem 's')
+        let fetchedSubjects = bookData.subject || [];
+        
+        // 2. DEEP FETCH: Se vier vazio, mas temos a chave da Obra, fazemos uma busca profunda!
+        if (fetchedSubjects.length === 0 && bookData.key) {
+          try {
+            const workRes = await fetch(`https://openlibrary.org${bookData.key}.json`);
+            const workData = await workRes.json();
+            // Na API detalhada, o campo chama-se 'subjects' (com 's')
+            if (workData.subjects) {
+              fetchedSubjects = workData.subjects;
+            }
+          } catch (e) {
+            console.log("Erro no Deep Fetch:", e);
+          }
+        }
+
+        if (fetchedSubjects.length > 0) {
+          const subStr = fetchedSubjects
+            .map(s => typeof s === 'string' ? s : s.name || s.value || '')
+            .join(' ')
+            .toLowerCase();
+          
+          console.log("🛠️ Assuntos Encontrados (Deep Fetch):", subStr);
+          
+          // Dicionário de mapeamento com palavras-chave
+          const genreMappings = [
+            { keys: ['science fiction', 'sci-fi', 'cyberpunk'], genre: 'Ficção Científica' },
+            { keys: ['fantasy', 'magic'], genre: 'Fantasia' },
+            { keys: ['historical fiction', 'history'], genre: 'Ficção Histórica' },
+            { keys: ['horror'], genre: 'Terror' },
+            { keys: ['humor', 'comedy'], genre: 'Humor' },
+            { keys: ['mystery', 'detective'], genre: 'Mistério e Detetive' },
+            { keys: ['plays', 'drama'], genre: 'Teatro' },
+            { keys: ['poetry'], genre: 'Poesia' },
+            { keys: ['romance', 'love'], genre: 'Romance' },
+            { keys: ['short stories'], genre: 'Contos' },
+            { keys: ['thriller', 'suspense'], genre: 'Suspense' },
+            { keys: ['young adult', 'juvenile'], genre: 'Jovem Adulto' },
+            { keys: ['literature', 'fiction'], genre: 'Literatura' }
+          ];
+
+          let bestMatch = 'Outros';
+          let earliestIndex = Infinity; // Começa no infinito
+
+          // Procura qual palavra-chave aparece PRIMEIRO no texto da API
+          genreMappings.forEach(mapping => {
+            mapping.keys.forEach(keyword => {
+              const idx = subStr.indexOf(keyword);
+              if (idx !== -1 && idx < earliestIndex) {
+                earliestIndex = idx;
+                bestMatch = mapping.genre;
+              }
+            });
+          });
+
+          setGenre(bestMatch);
+        } else {
+          console.log("🛠️ Nenhum assunto encontrado.");
+          setGenre('Outros'); 
+        }
         
         Alert.alert('Obra Encontrada!', `Preenchemos automaticamente: "${fetchedTitle}" por ${fetchedAuthor}`);
       } else {
@@ -74,16 +140,19 @@ export default function AddListingDetailsScreen({ navigation, route }) {
       return;
     }
 
+    if (!genre) {
+      Alert.alert('Campos Obrigatórios', 'Selecione o gênero principal do livro.');
+      return;
+    }
+
     if (!isTrade && !isSale && !isDonation) {
       Alert.alert('Modalidade', 'Selecione ao menos uma modalidade (Troca, Venda ou Doação).');
       return;
     }
 
-    // Traduz as combinações dos switches estritamente para os ENUMs do banco
     let dbModality = 'TROCA'; 
     if (isDonation) {
-      // Doação geralmente anula a venda, então tem prioridade máxima
-      dbModality = 'DOACAO';
+      dbModality = 'DOAÇÃO';
     } else if (isSale && isTrade) {
       dbModality = 'VENDA OU TROCA';
     } else if (isSale) {
@@ -95,7 +164,7 @@ export default function AddListingDetailsScreen({ navigation, route }) {
     const conditionMap = {
       'Novo': 'NOVO',
       'Excelente': 'EXCELENTE',
-      'Com marcas': 'COM_MARCAS' // Caso tenha criado no banco como 'USADO', mude aqui.
+      'Com marcas': 'COM_MARCAS' 
     };
     const dbCondition = conditionMap[condition];
 
@@ -104,7 +173,6 @@ export default function AddListingDetailsScreen({ navigation, route }) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado.');
 
-      // 1. Procurar ou inserir livro na tabela `books`
       let bookId = null;
       if (isbn.trim()) {
         const { data: existingBook } = await supabase
@@ -123,6 +191,7 @@ export default function AddListingDetailsScreen({ navigation, route }) {
             title: title.trim(),
             author: author.trim(),
             cover_image_url: coverUrl,
+            genre: genre // Salva em PT-BR no Supabase
           })
           .select()
           .single();
@@ -131,14 +200,13 @@ export default function AddListingDetailsScreen({ navigation, route }) {
         bookId = newBook.id;
       }
 
-      // 2. Inserir anúncio na tabela `listings`
       const { error: listingErr } = await supabase
         .from('listings')
         .insert({
           user_id: user.id,
           book_id: bookId,
           transaction_type: dbModality,
-          condition: dbCondition,
+          condition: dbCondition, 
           price: isSale && price ? parseFloat(price) : null,
           observations: description,
           status: 'ATIVO',
@@ -169,7 +237,6 @@ export default function AddListingDetailsScreen({ navigation, route }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* ISBN Auto-fill */}
         <Text style={styles.label}>Buscar metadados por ISBN (Open Library)</Text>
         <View style={styles.isbnRow}>
           <TextInput
@@ -189,7 +256,6 @@ export default function AddListingDetailsScreen({ navigation, route }) {
           </TouchableOpacity>
         </View>
 
-        {/* Título */}
         <Text style={styles.label}>Título da Obra *</Text>
         <TextInput
           style={styles.input}
@@ -199,7 +265,6 @@ export default function AddListingDetailsScreen({ navigation, route }) {
           onChangeText={setTitle}
         />
 
-        {/* Autor */}
         <Text style={styles.label}>Autor(a) *</Text>
         <TextInput
           style={styles.input}
@@ -209,9 +274,22 @@ export default function AddListingDetailsScreen({ navigation, route }) {
           onChangeText={setAuthor}
         />
 
-        {/* Modalidades (Switches) */}
-        <Text style={styles.sectionHeader}>Modalidades de Negociação</Text>
+        <Text style={styles.sectionHeader}>Gênero Principal *</Text>
+        <View style={styles.genreContainer}>
+          {CATEGORIES.map((cat) => (
+            <TouchableOpacity
+              key={cat}
+              style={[styles.genreChip, genre === cat && styles.genreChipActive]}
+              onPress={() => setGenre(cat)}
+            >
+              <Text style={[styles.genreChipText, genre === cat && styles.genreChipTextActive]}>
+                {cat}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
+        <Text style={styles.sectionHeader}>Modalidades de Negociação</Text>
         <View style={styles.switchRow}>
           <Text style={styles.switchLabel}>Disponível para Troca</Text>
           <Switch value={isTrade} onValueChange={setIsTrade} trackColor={{ true: '#1E88E5' }} />
@@ -241,7 +319,6 @@ export default function AddListingDetailsScreen({ navigation, route }) {
           <Switch value={isDonation} onValueChange={setIsDonation} trackColor={{ true: '#43A047' }} />
         </View>
 
-        {/* Estado de Conservação */}
         <Text style={styles.sectionHeader}>Estado de Conservação</Text>
         <View style={styles.conditionRow}>
           {['Novo', 'Excelente', 'Com marcas'].map((c) => (
@@ -257,7 +334,6 @@ export default function AddListingDetailsScreen({ navigation, route }) {
           ))}
         </View>
 
-        {/* Botão Publicar */}
         <TouchableOpacity
           style={[styles.primaryButton, publishing && styles.buttonDisabled]}
           onPress={handlePublish}
@@ -276,133 +352,30 @@ export default function AddListingDetailsScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F6',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-  },
-  headerTitle: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 18,
-    color: '#333',
-  },
-  content: {
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-  },
-  label: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 14,
-    color: '#333',
-    marginBottom: 6,
-    marginTop: 12,
-  },
-  input: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    height: 48,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 15,
-  },
-  isbnRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  isbnInput: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    height: 48,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 15,
-  },
-  isbnButton: {
-    backgroundColor: '#1E88E5',
-    paddingHorizontal: 18,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  isbnButtonText: {
-    fontFamily: 'Inter_600SemiBold',
-    color: '#FFF',
-    fontSize: 14,
-  },
-  sectionHeader: {
-    fontFamily: 'Nunito_700Bold',
-    fontSize: 16,
-    color: '#333',
-    marginTop: 20,
-    marginBottom: 12,
-  },
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    padding: 14,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    marginBottom: 10,
-  },
-  switchLabel: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 15,
-    color: '#333',
-  },
-  conditionRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 28,
-  },
-  conditionChip: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  conditionChipActive: {
-    backgroundColor: '#1E88E5',
-    borderColor: '#1E88E5',
-  },
-  conditionChipText: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 14,
-    color: '#666',
-  },
-  conditionChipTextActive: {
-    color: '#FFF',
-  },
-  primaryButton: {
-    backgroundColor: '#43A047',
-    height: 52,
-    borderRadius: 26,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  buttonDisabled: {
-    backgroundColor: '#A5D6A7',
-  },
-  primaryButtonText: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 16,
-    color: '#FFFFFF',
-  },
+  container: { flex: 1, backgroundColor: '#F5F5F6' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingVertical: 16 },
+  headerTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 18, color: '#333' },
+  content: { paddingHorizontal: 24, paddingBottom: 40 },
+  label: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: '#333', marginBottom: 6, marginTop: 12 },
+  input: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, paddingHorizontal: 14, height: 48, fontFamily: 'Inter_400Regular', fontSize: 15 },
+  isbnRow: { flexDirection: 'row', gap: 8 },
+  isbnInput: { flex: 1, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, paddingHorizontal: 14, height: 48, fontFamily: 'Inter_400Regular', fontSize: 15 },
+  isbnButton: { backgroundColor: '#1E88E5', paddingHorizontal: 18, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  isbnButtonText: { fontFamily: 'Inter_600SemiBold', color: '#FFF', fontSize: 14 },
+  sectionHeader: { fontFamily: 'Nunito_700Bold', fontSize: 16, color: '#333', marginTop: 20, marginBottom: 12 },
+  switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFFFFF', padding: 14, borderRadius: 8, borderWidth: 1, borderColor: '#E0E0E0', marginBottom: 10 },
+  switchLabel: { fontFamily: 'Inter_400Regular', fontSize: 15, color: '#333' },
+  conditionRow: { flexDirection: 'row', gap: 10, marginBottom: 28 },
+  conditionChip: { flex: 1, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E0E0E0', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
+  conditionChipActive: { backgroundColor: '#1E88E5', borderColor: '#1E88E5' },
+  conditionChipText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: '#666' },
+  conditionChipTextActive: { color: '#FFF' },
+  primaryButton: { backgroundColor: '#43A047', height: 52, borderRadius: 26, justifyContent: 'center', alignItems: 'center', marginTop: 10 },
+  buttonDisabled: { backgroundColor: '#A5D6A7' },
+  primaryButtonText: { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: '#FFFFFF' },
+  genreContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
+  genreChip: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E0E0E0', paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20 },
+  genreChipActive: { backgroundColor: '#1E88E5', borderColor: '#1E88E5' },
+  genreChipText: { fontFamily: 'Inter_400Regular', fontSize: 14, color: '#666' },
+  genreChipTextActive: { color: '#FFF', fontFamily: 'Inter_600SemiBold' },
 });
