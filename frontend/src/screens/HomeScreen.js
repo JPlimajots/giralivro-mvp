@@ -130,7 +130,7 @@ export default function HomeScreen({ navigation }) {
               {listings.map((listing) => (
                 <View key={listing.id} style={styles.carouselCard}>
                   {listing.books?.cover_image_url ? (
-                    <Image source={{ uri: listing.books.cover_image_url }} style={styles.cardCover} resizeMode="cover" />
+                    <Image source={{ uri: listing.books?.cover_image_url ? listing.books.cover_image_url.split(',')[0] : '' }} style={styles.cardCover} resizeMode="cover" />
                   ) : (
                     <View style={[styles.cardCover, { backgroundColor: '#E3F2FD', justifyContent: 'center', alignItems: 'center' }]}>
                       <Feather name="book" size={32} color="#1E88E5" />

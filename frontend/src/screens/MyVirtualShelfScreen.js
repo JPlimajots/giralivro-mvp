@@ -114,7 +114,7 @@ export default function MyVirtualShelfScreen({ navigation }) {
               return (
                 <View key={item.id} style={styles.card}>
                   {cover ? (
-                    <Image source={{ uri: cover }} style={styles.cover} resizeMode="cover" />
+                    <Image source={{ uri: cover ? cover.split(',')[0] : '' }} style={styles.cover} resizeMode="cover" />
                   ) : (
                     <View style={[styles.cover, { backgroundColor: '#E3F2FD', justifyContent: 'center', alignItems: 'center' }]}>
                       <Feather name="book" size={28} color="#1E88E5" />

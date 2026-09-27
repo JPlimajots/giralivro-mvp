@@ -9,9 +9,12 @@ import {
   Alert,
   Share,
   Linking,
+  Dimensions
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { supabase } from '../services/supabase';
+
+const { width: screenWidth } = Dimensions.get('window');
 
 const COLORS = {
   primary: '#1E88E5',
@@ -28,6 +31,7 @@ export default function BookDetailsScreen({ route, navigation }) {
   const listing = route.params?.listing || route.params?.book;
   const [favorite, setFavorite] = useState(false);
   const [seller, setSeller] = useState(null);
+  const [activeSlide, setActiveSlide] = useState(0);
 
   useEffect(() => {
     const fetchSellerInfo = async () => {
@@ -90,7 +94,8 @@ export default function BookDetailsScreen({ route, navigation }) {
 
   const title = listing.title || listing.books?.title || 'Sem título';
   const author = listing.author || listing.books?.author || 'Autor não informado';
-  const cover = listing.cover_image_url || listing.books?.cover_image_url || listing.cover || listing.cover_url;
+  const rawCover = listing.cover_image_url || listing.books?.cover_image_url || listing.cover || listing.cover_url || '';
+  const images = rawCover.includes(',') ? rawCover.split(',') : (rawCover ? [rawCover] : []);
   const modality = listing.transaction_type || listing.modality || 'DISPONÍVEL';
   const condition = listing.condition || 'Excelente';
   const price = listing.price;
@@ -99,15 +104,37 @@ export default function BookDetailsScreen({ route, navigation }) {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Imagem de Capa com Botões Flutuantes */}
+        {/* Carrossel de Imagens com Botões Flutuantes */}
         <View style={styles.imageContainer}>
-          {cover ? (
-            <Image source={{ uri: cover }} style={styles.coverImage} resizeMode="cover" />
+          {images.length > 0 ? (
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={(e) => {
+                const slide = Math.round(e.nativeEvent.contentOffset.x / screenWidth);
+                setActiveSlide(slide);
+              }}
+            >
+              {images.map((img, index) => (
+                <Image key={index} source={{ uri: img }} style={[styles.coverImage, { width: screenWidth }]} resizeMode="cover" />
+              ))}
+            </ScrollView>
           ) : (
-            <View style={[styles.coverImage, { backgroundColor: '#1E88E5', justifyContent: 'center', alignItems: 'center' }]}>
+            <View style={[styles.coverImage, { width: screenWidth, backgroundColor: '#1E88E5', justifyContent: 'center', alignItems: 'center' }]}>
               <Icon name="book-open-page-variant" size={64} color="#FFF" />
             </View>
           )}
+
+          {/* Indicadores do Carrossel (Bolinhas) */}
+          {images.length > 1 && (
+            <View style={styles.pagination}>
+              {images.map((_, i) => (
+                <View key={i} style={[styles.dot, i === activeSlide && styles.dotActive]} />
+              ))}
+            </View>
+          )}
+
           <TouchableOpacity style={styles.floatBackBtn} onPress={() => navigation.goBack()}>
             <Icon name="arrow-left" size={24} color="#333" />
           </TouchableOpacity>
@@ -404,5 +431,25 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontWeight: 'bold'
-  }
+  },
+  pagination: {
+    position: 'absolute',
+    bottom: 20,
+    flexDirection: 'row',
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    marginHorizontal: 4,
+  },
+  dotActive: {
+    backgroundColor: '#FFFFFF',
+    width: 10,
+    height: 10,
+  },
 });

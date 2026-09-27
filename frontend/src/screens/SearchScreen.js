@@ -148,7 +148,7 @@ export default function SearchScreen({ navigation }) {
                 activeOpacity={0.8}
               >
                 {item.books?.cover_image_url ? (
-                  <Image source={{ uri: item.books.cover_image_url }} style={styles.bookCover} resizeMode="cover" />
+                  <Image source={{ uri: item.books?.cover_image_url ? item.books.cover_image_url.split(',')[0] : '' }} style={styles.bookCover} resizeMode="cover" />
                 ) : (
                   <View style={[styles.bookCover, { backgroundColor: '#E3F2FD', justifyContent: 'center', alignItems: 'center' }]}>
                     <Feather name="book" size={28} color="#1E88E5" />
