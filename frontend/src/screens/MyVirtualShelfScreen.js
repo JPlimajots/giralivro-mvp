@@ -11,14 +11,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { useIsFocused } from '@react-navigation/native'; // Adicionado para recarregar a tela
+import { useIsFocused } from '@react-navigation/native';
 import { supabase } from '../services/supabase';
 import { COLORS } from '../constants/theme';
 
 export default function MyVirtualShelfScreen({ navigation }) {
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const isFocused = useIsFocused(); // Adicionado para recarregar a tela
+  const isFocused = useIsFocused(); 
 
   const fetchMyListings = async () => {
     setLoading(true);
@@ -28,7 +28,6 @@ export default function MyVirtualShelfScreen({ navigation }) {
 
       const { data, error } = await supabase
         .from('listings')
-        // Traz as informações novas da tabela de livros (como o gênero)
         .select('*, books(id, title, author, cover_image_url, genre)') 
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
@@ -117,14 +116,12 @@ export default function MyVirtualShelfScreen({ navigation }) {
               const formattedModality = `${item.transaction_type || 'DISPONÍVEL'}${item.price ? ` • R$ ${Number(item.price).toFixed(2)}` : ''}`;
 
               return (
-                // 1. Transformado o card num botão que abre a tela de detalhes
                 <TouchableOpacity 
                   key={item.id} 
                   style={styles.card} 
                   activeOpacity={0.7}
                   onPress={() => navigation.navigate('BookDetails', { listing: item })}
                 >
-                  {/* 2. Lê apenas a primeira foto da URL */}
                   {cover ? (
                     <Image source={{ uri: cover ? cover.split(',')[0] : '' }} style={styles.cover} resizeMode="cover" />
                   ) : (
@@ -145,22 +142,34 @@ export default function MyVirtualShelfScreen({ navigation }) {
 
                     <Text style={styles.modalityText}>{formattedModality}</Text>
 
-                    {/* Ações do Anúncio (permanecem intactas) */}
+                    {/* Ações do Anúncio */}
                     <View style={styles.actionsRow}>
                       <TouchableOpacity
                         style={styles.actionBtnSecondary}
-                        // O uso do event.stopPropagation() garante que clicar no botão não abra o livro inteiro
                         onPress={(e) => { e.stopPropagation(); handleMarkAsTraded(item.id); }}
                       >
                         <Text style={styles.actionBtnSecondaryText}>Negociado</Text>
                       </TouchableOpacity>
 
-                      <TouchableOpacity
-                        style={styles.actionBtnDanger}
-                        onPress={(e) => { e.stopPropagation(); handleDeleteListing(item.id); }}
-                      >
-                        <Feather name="trash-2" size={16} color={COLORS.danger} />
-                      </TouchableOpacity>
+                      {/* Agrupamento dos ícones alinhados à direita */}
+                      <View style={styles.iconActions}>
+                        <TouchableOpacity
+                          style={styles.actionBtnIcon}
+                          onPress={(e) => { 
+                            e.stopPropagation(); 
+                            navigation.navigate('EditListing', { listing: item }); 
+                          }}
+                        >
+                          <Feather name="edit-2" size={18} color={COLORS.primary} />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={styles.actionBtnIcon}
+                          onPress={(e) => { e.stopPropagation(); handleDeleteListing(item.id); }}
+                        >
+                          <Feather name="trash-2" size={18} color={COLORS.danger} />
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -302,7 +311,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.primary,
   },
-  actionBtnDanger: {
+  iconActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginLeft: 'auto', 
+  },
+  actionBtnIcon: {
     padding: 6,
   },
   emptyText: {

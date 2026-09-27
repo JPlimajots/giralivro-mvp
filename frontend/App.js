@@ -27,6 +27,8 @@ import PublishSuccessScreen from './src/screens/PublishSuccessScreen';
 import MyVirtualShelfScreen from './src/screens/MyVirtualShelfScreen';
 import WishlistScreen from './src/screens/WishlistScreen';
 import BookDetailsScreen from './src/screens/BookDetailsScreen';
+import EditListingScreen from './src/screens/EditListingScreen';
+
 
 const Stack = createNativeStackNavigator();
 
@@ -146,6 +148,7 @@ export default function App() {
             <Stack.Screen name="AddBookPhoto" component={AddBookPhotoScreen} />
             <Stack.Screen name="AddListingDetails" component={AddListingDetailsScreen} />
             <Stack.Screen name="PublishSuccess" component={PublishSuccessScreen} />
+            <Stack.Screen name="EditListing" component={EditListingScreen} options={{ headerShown: false }} />
           </Stack.Group>
         )}
       </Stack.Navigator>
