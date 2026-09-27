@@ -96,6 +96,7 @@ export default function BookDetailsScreen({ route, navigation }) {
   const author = listing.author || listing.books?.author || 'Autor não informado';
   const rawCover = listing.cover_image_url || listing.books?.cover_image_url || listing.cover || listing.cover_url || '';
   const images = rawCover.includes(',') ? rawCover.split(',') : (rawCover ? [rawCover] : []);
+  const bookGenre = listing.books?.genre || listing.genre || 'Não especificado';
   const modality = listing.transaction_type || listing.modality || 'DISPONÍVEL';
   const condition = listing.condition || 'Excelente';
   const price = listing.price;
@@ -180,7 +181,7 @@ export default function BookDetailsScreen({ route, navigation }) {
           {/* Gênero */}
           <View style={styles.infoRow}>
             <Icon name="book-open-variant" size={22} color={COLORS.primary} />
-            <Text style={styles.infoText}>{`Gênero: ${listing.genre || 'Ficção / Literatura'}`}</Text>
+            <Text style={styles.infoText}>{bookGenre}</Text>
           </View>
 
           <View style={styles.divider} />

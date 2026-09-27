@@ -26,7 +26,7 @@ export default function MyVirtualShelfScreen({ navigation }) {
 
       const { data, error } = await supabase
         .from('listings')
-        .select('*, books(*)')
+        .select('*, books(id, title, author, cover_image_url, genre)')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 

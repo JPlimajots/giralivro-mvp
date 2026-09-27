@@ -51,7 +51,7 @@ export default function HomeScreen({ navigation }) {
       // Buscar anúncios ativos com dados dos livros
       const { data: listingsData, error } = await supabase
         .from('listings')
-        .select('*, books(*)')
+        .select('*, books(id, title, author, cover_image_url, genre)')
         .eq('status', 'ATIVO')
         .order('created_at', { ascending: false })
         .limit(20);
