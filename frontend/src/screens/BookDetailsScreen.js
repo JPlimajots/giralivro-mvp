@@ -100,7 +100,7 @@ export default function BookDetailsScreen({ route, navigation }) {
   const modality = listing.transaction_type || listing.modality || 'DISPONÍVEL';
   const condition = listing.condition || 'Excelente';
   const price = listing.price;
-  const formattedPrice = modality === 'DOAÇÃO'
+  const formattedPrice = (modality === 'DOACAO' || modality === 'DOAÇÃO')
     ? 'GRÁTIS (Doação)'
     : modality === 'TROCA'
       ? 'Disponível para Troca'
@@ -163,8 +163,8 @@ export default function BookDetailsScreen({ route, navigation }) {
         {/* Informações Principais */}
         <View style={styles.detailsSection}>
           <View style={styles.badgeRow}>
-            <View style={[styles.modalityBadge, modality === 'DOAÇÃO' ? styles.badgeGreen : styles.badgeBlue]}>
-              <Text style={styles.modalityBadgeText}>{modality}</Text>
+            <View style={[styles.modalityBadge, (modality === 'DOACAO' || modality === 'DOAÇÃO') ? styles.badgeGreen : styles.badgeBlue]}>
+              <Text style={styles.modalityBadgeText}>{modality === 'DOACAO' ? 'DOAÇÃO' : modality}</Text>
             </View>
             <View style={styles.conditionBadge}>
               <Text style={styles.conditionBadgeText}>{`Estado: ${condition}`}</Text>

@@ -152,7 +152,7 @@ export default function AddListingDetailsScreen({ navigation, route }) {
 
     let dbModality = 'TROCA'; 
     if (isDonation) {
-      dbModality = 'DOAÇÃO';
+      dbModality = 'DOACAO';
     } else if (isSale && isTrade) {
       dbModality = 'VENDA OU TROCA';
     } else if (isSale) {

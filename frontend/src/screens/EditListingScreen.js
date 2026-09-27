@@ -49,7 +49,7 @@ export default function EditListingScreen({ navigation, route }) {
       const tt = listing.transaction_type || '';
       setIsTrade(tt.includes('TROCA'));
       setIsSale(tt.includes('VENDA'));
-      setIsDonation(tt.includes('DOAÇÃO'));
+      setIsDonation(tt. includes('DOACAO') || tt.includes('DOAÇÃO'));
       
       if (listing.price) setPrice(listing.price.toString());
 
@@ -79,7 +79,7 @@ export default function EditListingScreen({ navigation, route }) {
 
     let dbModality = 'TROCA'; 
     if (isDonation) {
-      dbModality = 'DOAÇÃO';
+      dbModality = 'DOACAO';
     } else if (isSale && isTrade) {
       dbModality = 'VENDA OU TROCA';
     } else if (isSale) {
