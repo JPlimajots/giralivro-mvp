@@ -174,6 +174,8 @@ export default function ChatConversationScreen({ navigation, route }) {
     } catch (err) {
       Alert.alert('Erro', 'Não foi possível registrar a denúncia.');
     }
+  };
+
   const handleReserve = () => {
     const interestedName = conversa?.interessado?.full_name || 'este leitor';
     Alert.alert(
