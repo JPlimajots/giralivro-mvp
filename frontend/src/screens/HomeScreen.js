@@ -103,13 +103,6 @@ export default function HomeScreen({ navigation }) {
       setLoading(false);
     }
   };
-    } catch (error) {
-      console.log('Error fetching home data:', error);
-      setListings([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
     fetchHomeData();
