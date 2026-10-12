@@ -18,3 +18,11 @@ __pycache__/
 .vscode/
 .idea/
 *.log
+
+# Documentos pesados / protótipos locais
+*.pdf
+
+# Configurações de build / credenciais expo locais
+frontend/eas.json
+.pytest_cache/
+
