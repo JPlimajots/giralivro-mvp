@@ -177,42 +177,45 @@ export default function HomeScreen({ navigation }) {
 
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carouselRow}>
                   {recommendedListings.map((listing) => (
-                    <View key={`rec-${listing.id}`} style={[styles.carouselCard, { borderColor: '#BBDEFB', borderWidth: 1 }]}>
-                      {listing.books?.cover_image_url ? (
-                        <Image source={{ uri: listing.books.cover_image_url.split(',')[0] }} style={styles.cardCover} resizeMode="cover" />
-                      ) : (
-                        <View style={[styles.cardCover, { backgroundColor: '#E3F2FD', justifyContent: 'center', alignItems: 'center' }]}>
-                          <Feather name="book" size={32} color="#1E88E5" />
-                        </View>
-                      )}
+                    <TouchableOpacity
+                      key={`rec-${listing.id}`}
+                      style={[styles.carouselCard, { borderColor: '#BBDEFB', borderWidth: 1 }]}
+                      activeOpacity={0.85}
+                      onPress={() => navigation.navigate('BookDetails', { book: { ...listing.books, ...listing } })}
+                    >
+                      <View style={{ position: 'relative' }}>
+                        {listing.books?.cover_image_url ? (
+                          <Image source={{ uri: listing.books.cover_image_url.split(',')[0] }} style={styles.cardCover} resizeMode="cover" />
+                        ) : (
+                          <View style={[styles.cardCover, { backgroundColor: '#E3F2FD', justifyContent: 'center', alignItems: 'center' }]}>
+                            <Feather name="book" size={32} color="#1E88E5" />
+                          </View>
+                        )}
 
-                      {/* Motivo da Recomendação (US-10) */}
-                      <View style={{ backgroundColor: '#E3F2FD', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginVertical: 4, alignSelf: 'flex-start' }}>
-                        <Text style={{ fontSize: 10, fontFamily: 'Inter_600SemiBold', color: '#1565C0' }} numberOfLines={1}>
+                        {/* Botão X de dislike no canto superior da capa */}
+                        <TouchableOpacity
+                          style={styles.dislikeBadgeBtn}
+                          onPress={(e) => {
+                            e.stopPropagation?.();
+                            handleDislikeRecommendation(listing.id);
+                          }}
+                          accessibilityLabel="Não tenho interesse neste livro"
+                          accessibilityRole="button"
+                        >
+                          <Feather name="x" size={14} color="#666" />
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* Motivo da Recomendação sem cortar */}
+                      <View style={styles.recommendationBadge}>
+                        <Text style={styles.recommendationBadgeText}>
                           {listing.reason}
                         </Text>
                       </View>
 
                       <Text style={styles.cardTitle} numberOfLines={1}>{listing.books?.title || 'Sem título'}</Text>
-                      <Text style={styles.cardAuthor}>{listing.books?.author || ''}</Text>
-
-                      <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
-                        <TouchableOpacity
-                          style={[styles.cardBtn, { flex: 1 }]}
-                          onPress={() => navigation.navigate('BookDetails', { book: { ...listing.books, ...listing } })}
-                        >
-                          <Text style={styles.cardBtnText}>Ver</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={{ padding: 6, justifyContent: 'center', alignItems: 'center' }}
-                          onPress={() => handleDislikeRecommendation(listing.id)}
-                          accessibilityLabel="Não tenho interesse neste livro"
-                        >
-                          <Feather name="x" size={16} color="#9E9E9E" />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
+                      <Text style={styles.cardAuthor} numberOfLines={1}>{listing.books?.author || ''}</Text>
+                    </TouchableOpacity>
                   ))}
                 </ScrollView>
               </View>
@@ -228,7 +231,12 @@ export default function HomeScreen({ navigation }) {
 
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carouselRow}>
               {listings.map((listing) => (
-                <View key={listing.id} style={styles.carouselCard}>
+                <TouchableOpacity
+                  key={listing.id}
+                  style={styles.carouselCard}
+                  activeOpacity={0.85}
+                  onPress={() => navigation.navigate('BookDetails', { book: { ...listing.books, ...listing } })}
+                >
                   {listing.books?.cover_image_url ? (
                     <Image source={{ uri: listing.books?.cover_image_url ? listing.books.cover_image_url.split(',')[0] : '' }} style={styles.cardCover} resizeMode="cover" />
                   ) : (
@@ -240,17 +248,11 @@ export default function HomeScreen({ navigation }) {
                     <Text style={styles.cardModality}>{listing.transaction_type}</Text>
                   </View>
                   <Text style={styles.cardTitle} numberOfLines={1}>{listing.books?.title || 'Sem título'}</Text>
-                  <Text style={styles.cardAuthor}>{listing.books?.author || ''}</Text>
+                  <Text style={styles.cardAuthor} numberOfLines={1}>{listing.books?.author || ''}</Text>
                   {listing.price ? (
-                    <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#43A047', marginBottom: 4 }}>R$ {Number(listing.price).toFixed(2)}</Text>
+                    <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#43A047', marginTop: 2 }}>R$ {Number(listing.price).toFixed(2)}</Text>
                   ) : null}
-                  <TouchableOpacity
-                    style={styles.cardBtn}
-                    onPress={() => navigation.navigate('BookDetails', { book: { ...listing.books, ...listing } })}
-                  >
-                    <Text style={styles.cardBtnText}>Ver Detalhes</Text>
-                  </TouchableOpacity>
-                </View>
+                </TouchableOpacity>
               ))}
             </ScrollView>
           </>
@@ -346,7 +348,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   carouselCard: {
-    width: 150,
+    width: 155,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 10,
@@ -359,6 +361,35 @@ const styles = StyleSheet.create({
     height: 160,
     borderRadius: 8,
     marginBottom: 8,
+  },
+  dislikeBadgeBtn: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+  },
+  recommendationBadge: {
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 4,
+    marginBottom: 6,
+    alignSelf: 'flex-start',
+  },
+  recommendationBadgeText: {
+    fontSize: 10,
+    fontFamily: 'Inter_600SemiBold',
+    color: '#1565C0',
   },
   cardBadges: {
     alignSelf: 'flex-start',
