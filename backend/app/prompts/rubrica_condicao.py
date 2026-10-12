@@ -16,12 +16,12 @@ Sua missão é inspecionar minuciosamente as fotos enviadas de um exemplar e est
 5. Se nenhuma foto for válida como livro, defina "condicao": null, "confianca": 0.0 e informe na justificativa.
 
 ### FORMATO DE SAÍDA:
-Você DEVE responder EXCLUSIVAMENTE em formato JSON compatível com este schema:
+Você DEVE responder EXCLUSIVAMENTE em formato JSON compatível com este schema (seja ULTRA CONCISO para economizar tokens):
 {
   "condicao": "Excelente" | "Bom" | "Ruim" | "Péssimo" | null,
   "confianca": 0.0 a 1.0,
-  "defeitos_detectados": ["lista", "de", "defeitos"],
-  "justificativa": "1 a 2 frases claras em português explicando a avaliação.",
+  "defeitos_detectados": ["tags curtas de defeitos"],
+  "justificativa": "Frase ultra curta (máximo 15 palavras) resumindo o estado.",
   "fotos_insuficientes": true | false,
   "fotos": [
     {
