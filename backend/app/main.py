@@ -1,12 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import supabase
-from app.routers import feed, users, auth, books, listings, wishlist, search
+from app.routers import feed, users, auth, books, listings, wishlist, search, recommendations, vision
 
 app = FastAPI(
     title="GiraLivro API",
     description="API Completa do MVP do GiraLivro para troca de livros, autenticação, busca especializada e economia circular.",
-    version="1.0.0"
+    version="2.0.0"
 )
 
 # Configuração de CORS para permitir acesso do React Native / Expo e Web
@@ -26,6 +26,8 @@ app.include_router(books.router)
 app.include_router(listings.router)
 app.include_router(wishlist.router)
 app.include_router(search.router)
+app.include_router(recommendations.router)
+app.include_router(vision.router)
 
 @app.get("/")
 def read_root():

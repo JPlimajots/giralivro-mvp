@@ -82,9 +82,11 @@ export default function AddBookPhotoScreen({ navigation }) {
 
     setUploading(true);
     const uploadedUrls = [];
+    let suggestedCondition = null;
+    let aiJustification = '';
 
     try {
-      // Faz o upload sequencial das 3 imagens
+      // Faz o upload sequencial das 3 imagens para o Supabase Storage
       for (let i = 0; i < photos.length; i++) {
         const filename = `cover_${Date.now()}_${i}.jpg`;
         const base64 = await FileSystem.readAsStringAsync(photos[i].uri, { encoding: 'base64' });
@@ -100,6 +102,44 @@ export default function AddBookPhotoScreen({ navigation }) {
           uploadedUrls.push(urlData.publicUrl);
         }
       }
+
+      // Tenta avaliar condição por Visão Computacional no backend (sem bloquear publicação em caso de erro/timeout)
+      try {
+        const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
+        const formData = new FormData();
+
+        formData.append('capa', {
+          uri: photos[0].uri,
+          type: 'image/jpeg',
+          name: 'capa.jpg'
+        });
+        formData.append('lombada', {
+          uri: photos[1].uri,
+          type: 'image/jpeg',
+          name: 'lombada.jpg'
+        });
+        formData.append('contracapa', {
+          uri: photos[2].uri,
+          type: 'image/jpeg',
+          name: 'contracapa.jpg'
+        });
+
+        const res = await fetch(`${apiUrl}/anuncios/avaliar-condicao`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (res.ok) {
+          const aiData = await res.json();
+          if (aiData?.condicao) {
+            suggestedCondition = aiData.condicao;
+            aiJustification = aiData.justificativa || '';
+          }
+        }
+      } catch (aiErr) {
+        console.log('Avaliação por IA ignorada ou offline:', aiErr);
+      }
+
     } catch (err) {
       console.log('Upload error:', err);
       Alert.alert('Erro no Upload', 'Não foi possível enviar as fotos. Tente novamente.');
@@ -108,9 +148,12 @@ export default function AddBookPhotoScreen({ navigation }) {
     }
 
     setUploading(false);
-    // Junta as 3 URLs geradas numa única string separada por vírgulas
     const finalCoverString = uploadedUrls.join(',');
-    navigation.navigate('AddListingDetails', { coverUrl: finalCoverString });
+    navigation.navigate('AddListingDetails', { 
+      coverUrl: finalCoverString,
+      suggestedCondition,
+      aiJustification
+    });
   };
 
   return (

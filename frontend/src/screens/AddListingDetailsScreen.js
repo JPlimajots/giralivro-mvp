@@ -15,7 +15,11 @@ import { Feather } from '@expo/vector-icons';
 import { supabase } from '../services/supabase';
 
 export default function AddListingDetailsScreen({ navigation, route }) {
-  const { coverUrl = 'https://covers.openlibrary.org/b/id/153253-M.jpg' } = route.params || {};
+  const { 
+    coverUrl = 'https://covers.openlibrary.org/b/id/153253-M.jpg',
+    suggestedCondition,
+    aiJustification: routeAiJustification
+  } = route.params || {};
 
   const [isbn, setIsbn] = useState('');
   const [title, setTitle] = useState('');
@@ -29,7 +33,9 @@ export default function AddListingDetailsScreen({ navigation, route }) {
   const [isDonation, setIsDonation] = useState(false);
   const [price, setPrice] = useState('');
 
-  const [condition, setCondition] = useState('Excelente');
+  const [condition, setCondition] = useState(suggestedCondition || 'Excelente');
+  const [conditionOrigin, setConditionOrigin] = useState(suggestedCondition ? 'IA' : 'MANUAL');
+  const [aiJustification, setAiJustification] = useState(routeAiJustification || '');
   const [publishing, setPublishing] = useState(false);
 
   // 1. Lista de Gêneros Traduzida para PT-BR
@@ -206,10 +212,12 @@ export default function AddListingDetailsScreen({ navigation, route }) {
           user_id: user.id,
           book_id: bookId,
           transaction_type: dbModality,
-          condition: dbCondition, 
+          condition: condition, 
+          condition_origin: conditionOrigin,
+          condition_ai_justification: aiJustification || null,
           price: isSale && price ? parseFloat(price) : null,
           observations: description,
-          status: 'ATIVO',
+          status: 'Disponível',
         });
 
       if (listingErr) throw listingErr;
@@ -319,13 +327,34 @@ export default function AddListingDetailsScreen({ navigation, route }) {
           <Switch value={isDonation} onValueChange={setIsDonation} trackColor={{ true: '#43A047' }} />
         </View>
 
-        <Text style={styles.sectionHeader}>Estado de Conservação</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20, marginBottom: 12 }}>
+          <Text style={styles.sectionHeader}>Estado de Conservação</Text>
+          {conditionOrigin === 'IA' && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#E3F2FD', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, gap: 4 }}>
+              <Feather name="sparkles" size={12} color="#1E88E5" />
+              <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: '#1E88E5' }}>Sugerido por IA</Text>
+            </View>
+          )}
+        </View>
+
+        {aiJustification ? (
+          <View style={{ backgroundColor: '#F0F7FF', padding: 12, borderRadius: 8, marginBottom: 14, borderWidth: 1, borderColor: '#BBDEFB' }}>
+            <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: '#1565C0', lineHeight: 17 }}>
+              💡 {aiJustification}
+            </Text>
+          </View>
+        ) : null}
+
         <View style={styles.conditionRow}>
-          {['Novo', 'Excelente', 'Com marcas'].map((c) => (
+          {['Excelente', 'Bom', 'Ruim', 'Péssimo'].map((c) => (
             <TouchableOpacity
               key={c}
               style={[styles.conditionChip, condition === c && styles.conditionChipActive]}
-              onPress={() => setCondition(c)}
+              onPress={() => {
+                setCondition(c);
+                setConditionOrigin('MANUAL');
+              }}
+              accessibilityLabel={`Condição ${c}`}
             >
               <Text style={[styles.conditionChipText, condition === c && styles.conditionChipTextActive]}>
                 {c}

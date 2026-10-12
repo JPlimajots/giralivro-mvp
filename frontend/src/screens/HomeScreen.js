@@ -16,24 +16,44 @@ import { getAddressFromCep } from '../services/cep';
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [listings, setListings] = useState([]);
+  const [recommendedListings, setRecommendedListings] = useState([]);
   const [userName, setUserName] = useState('');
   const [locationText, setLocationText] = useState('');
   const [loading, setLoading] = useState(true);
+
+  const handleDislikeRecommendation = async (listingId) => {
+    try {
+      setRecommendedListings((prev) => prev.filter((item) => item.id !== listingId));
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('interacoes_usuario').insert({
+          user_id: user.id,
+          listing_id: listingId,
+          tipo_interacao: 'DISLIKE'
+        });
+      }
+    } catch (e) {
+      console.log('Erro ao registrar dislike:', e);
+    }
+  };
 
   const fetchHomeData = async () => {
     setLoading(true);
     try {
       // Pegar dados do usuário logado
       const { data: { user } } = await supabase.auth.getUser();
+      let favGenres = [];
+
       if (user) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('full_name, zip_code')
+          .select('full_name, zip_code, favorite_genres')
           .eq('id', user.id)
           .single();
 
         const name = profile?.full_name || user.user_metadata?.full_name || 'Leitor(a)';
         const zip = profile?.zip_code || user.user_metadata?.cep || '';
+        favGenres = profile?.favorite_genres || [];
         setUserName(name.split(' ')[0].toUpperCase());
 
         if (zip) {
@@ -52,12 +72,37 @@ export default function HomeScreen({ navigation }) {
       const { data: listingsData, error } = await supabase
         .from('listings')
         .select('*, books(id, title, author, cover_image_url, genre)')
-        .eq('status', 'ATIVO')
+        .or('status.eq.ATIVO,status.eq.Disponível,status.eq.DISPONIVEL')
         .order('created_at', { ascending: false })
         .limit(20);
 
       if (error) throw error;
-      setListings(listingsData || []);
+      const allActive = listingsData || [];
+      setListings(allActive);
+
+      // Calcular recomendações personalizadas com justificativa (US-10)
+      if (user && allActive.length > 0) {
+        const normalizedFavs = favGenres.map(g => g.toLowerCase());
+        const recs = allActive
+          .filter(item => item.user_id !== user.id)
+          .map(item => {
+            const g = (item.genre || item.books?.genre || '').toLowerCase();
+            const matched = normalizedFavs.find(f => g.includes(f) || f.includes(g));
+            return {
+              ...item,
+              reason: matched ? `Porque você curte ${matched.charAt(0).toUpperCase() + matched.slice(1)}` : 'Popular perto de você'
+            };
+          })
+          .slice(0, 10);
+        setRecommendedListings(recs);
+      }
+    } catch (error) {
+      console.log('Error fetching home data:', error);
+      setListings([]);
+    } finally {
+      setLoading(false);
+    }
+  };
     } catch (error) {
       console.log('Error fetching home data:', error);
       setListings([]);
@@ -125,6 +170,59 @@ export default function HomeScreen({ navigation }) {
           </View>
         ) : (
           <>
+            {/* Seção Recomendados para Você com IA (US-10) */}
+            {recommendedListings.length > 0 && (
+              <View style={{ marginBottom: 20 }}>
+                <View style={styles.sectionHeader}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Feather name="sparkles" size={18} color="#1E88E5" />
+                    <Text style={styles.sectionTitle}>Recomendados para você</Text>
+                  </View>
+                </View>
+
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carouselRow}>
+                  {recommendedListings.map((listing) => (
+                    <View key={`rec-${listing.id}`} style={[styles.carouselCard, { borderColor: '#BBDEFB', borderWidth: 1 }]}>
+                      {listing.books?.cover_image_url ? (
+                        <Image source={{ uri: listing.books.cover_image_url.split(',')[0] }} style={styles.cardCover} resizeMode="cover" />
+                      ) : (
+                        <View style={[styles.cardCover, { backgroundColor: '#E3F2FD', justifyContent: 'center', alignItems: 'center' }]}>
+                          <Feather name="book" size={32} color="#1E88E5" />
+                        </View>
+                      )}
+
+                      {/* Motivo da Recomendação (US-10) */}
+                      <View style={{ backgroundColor: '#E3F2FD', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginVertical: 4, alignSelf: 'flex-start' }}>
+                        <Text style={{ fontSize: 10, fontFamily: 'Inter_600SemiBold', color: '#1565C0' }} numberOfLines={1}>
+                          {listing.reason}
+                        </Text>
+                      </View>
+
+                      <Text style={styles.cardTitle} numberOfLines={1}>{listing.books?.title || 'Sem título'}</Text>
+                      <Text style={styles.cardAuthor}>{listing.books?.author || ''}</Text>
+
+                      <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
+                        <TouchableOpacity
+                          style={[styles.cardBtn, { flex: 1 }]}
+                          onPress={() => navigation.navigate('BookDetails', { book: { ...listing.books, ...listing } })}
+                        >
+                          <Text style={styles.cardBtnText}>Ver</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={{ padding: 6, justifyContent: 'center', alignItems: 'center' }}
+                          onPress={() => handleDislikeRecommendation(listing.id)}
+                          accessibilityLabel="Não tenho interesse neste livro"
+                        >
+                          <Feather name="x" size={16} color="#9E9E9E" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
             {/* Livros Disponíveis */}
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Livros disponíveis</Text>
