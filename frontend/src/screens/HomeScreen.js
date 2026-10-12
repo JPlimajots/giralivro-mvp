@@ -38,8 +38,10 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
-  const fetchHomeData = async () => {
-    setLoading(true);
+  const fetchHomeData = async (isInitial = false) => {
+    if (isInitial || listings.length === 0) {
+      setLoading(true);
+    }
     try {
       // Pegar dados do usuário logado
       const { data: { user } } = await supabase.auth.getUser();
