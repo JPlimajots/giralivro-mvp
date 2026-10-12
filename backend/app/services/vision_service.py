@@ -17,14 +17,14 @@ def validate_image_locally(image_bytes: bytes) -> Tuple[bool, Optional[str], Opt
     Pré-validação barata com Pillow para poupar a cota da API do Gemini:
     - Bytes reais de imagem (não confia só na extensão)
     - Resolução mínima (pelo menos 100x100)
-    - Tamanho máximo (máx 10 MB)
+    - Tamanho máximo (máx 25 MB)
     - Foto não totalmente preta / corrompida
     """
     if len(image_bytes) == 0:
         return False, "Arquivo de imagem vazio.", None
 
-    if len(image_bytes) > 10 * 1024 * 1024:
-        return False, "Imagem excede o tamanho máximo de 10 MB.", None
+    if len(image_bytes) > 25 * 1024 * 1024:
+        return False, "Imagem excede o tamanho máximo de 25 MB.", None
 
     try:
         img = Image.open(io.BytesIO(image_bytes))
@@ -99,10 +99,10 @@ def evaluate_book_condition_with_gemini(
             fotos=inspected_photos
         )
 
-    # 2. Prepara chamada ao modelo multimodal Gemini 1.5 Flash
+    # 2. Prepara chamada ao modelo multimodal Gemini (compatível com a cota Free)
     try:
         model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
+            model_name="gemini-flash-latest",
             generation_config={
                 "response_mime_type": "application/json",
                 "temperature": 0.2,
