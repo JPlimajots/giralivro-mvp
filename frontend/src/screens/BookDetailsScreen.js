@@ -12,6 +12,7 @@ import {
   Dimensions,
   ActivityIndicator
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { supabase } from '../services/supabase';
 import { getOrCreateConversation } from '../services/chatService';
@@ -30,6 +31,7 @@ const COLORS = {
 };
 
 export default function BookDetailsScreen({ route, navigation }) {
+  const insets = useSafeAreaInsets();
   const listing = route.params?.listing || route.params?.book;
   const [favorite, setFavorite] = useState(false);
   const [seller, setSeller] = useState(null);
@@ -265,9 +267,9 @@ export default function BookDetailsScreen({ route, navigation }) {
         </View>
       </ScrollView>
 
-      {/* Barra Inferior com Chat Interno (US-01) */}
+      {/* Barra Inferior com Chat Interno (US-01) com altura adaptável */}
       {!isOwner && isAvailable && (
-        <View style={styles.bottomBar}>
+        <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
           <TouchableOpacity 
             style={styles.chatPrimaryBtn} 
             onPress={handleStartChat}
@@ -295,7 +297,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background
   },
   scrollContent: {
-    paddingBottom: 100
+    paddingBottom: 140
   },
   errorContainer: {
     flex: 1,
