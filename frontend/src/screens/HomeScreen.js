@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../services/supabase';
 import { getAddressFromCep } from '../services/cep';
 
@@ -49,10 +50,10 @@ export default function HomeScreen({ navigation }) {
           .from('profiles')
           .select('full_name, zip_code, favorite_genres')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
 
         const name = profile?.full_name || user.user_metadata?.full_name || 'Leitor(a)';
-        const zip = profile?.zip_code || user.user_metadata?.cep || '';
+        const zip = profile?.zip_code || user.user_metadata?.cep || user.user_metadata?.zip_code || '';
         favGenres = profile?.favorite_genres || [];
         setUserName(name.split(' ')[0].toUpperCase());
 
@@ -104,9 +105,11 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
-  useEffect(() => {
-    fetchHomeData();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchHomeData();
+    }, [])
+  );
 
   return (
     <SafeAreaView style={styles.container}>
