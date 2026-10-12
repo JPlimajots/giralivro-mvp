@@ -18,7 +18,7 @@ export async function getOrCreateConversation(listingId, sellerId) {
   // 1. Tenta buscar conversa existente
   const { data: existing, error: fetchErr } = await supabase
     .from('conversas')
-    .select('*, listings(id, transaction_type, status, book_id, books(title, author, cover_image_url)), anunciante:profiles!conversas_anunciante_id_fkey(id, full_name, avatar_url), interessado:profiles!conversas_interessado_id_fkey(id, full_name, avatar_url)')
+    .select('*, listings(id, transaction_type, status, book_id, books(title, author, cover_image_url)), anunciante:profiles!conversas_anunciante_id_fkey(id, full_name), interessado:profiles!conversas_interessado_id_fkey(id, full_name)')
     .eq('listing_id', listingId)
     .eq('interessado_id', user.id)
     .maybeSingle();
@@ -40,7 +40,7 @@ export async function getOrCreateConversation(listingId, sellerId) {
       interessado_id: user.id,
       status: 'ATIVA',
     })
-    .select('*, listings(id, transaction_type, status, book_id, books(title, author, cover_image_url)), anunciante:profiles!conversas_anunciante_id_fkey(id, full_name, avatar_url), interessado:profiles!conversas_interessado_id_fkey(id, full_name, avatar_url)')
+    .select('*, listings(id, transaction_type, status, book_id, books(title, author, cover_image_url)), anunciante:profiles!conversas_anunciante_id_fkey(id, full_name), interessado:profiles!conversas_interessado_id_fkey(id, full_name)')
     .single();
 
   if (insertErr) throw insertErr;
@@ -109,8 +109,8 @@ export async function fetchMyConversations() {
       created_at,
       updated_at,
       listings(id, transaction_type, status, books(title, author, cover_image_url)),
-      anunciante:profiles!conversas_anunciante_id_fkey(id, full_name, avatar_url),
-      interessado:profiles!conversas_interessado_id_fkey(id, full_name, avatar_url),
+      anunciante:profiles!conversas_anunciante_id_fkey(id, full_name),
+      interessado:profiles!conversas_interessado_id_fkey(id, full_name),
       mensagens(id, conteudo, created_at, status_leitura, remetente_id)
     `)
     .or(`anunciante_id.eq.${user.id},interessado_id.eq.${user.id}`)
