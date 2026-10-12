@@ -113,6 +113,10 @@ export default function BookDetailsScreen({ route, navigation }) {
       ? 'Disponível para Troca'
       : modality === 'VENDA OU TROCA'
         ? `R$ ${Number(price || 0).toFixed(2)} ou Troca`
+        : price
+          ? `R$ ${Number(price).toFixed(2)}`
+          : 'Disponível';
+
   const handleStartChat = async () => {
     if (!currentUser) {
       Alert.alert('Login Necessário', 'Você precisa estar logado para conversar sobre este livro.', [
