@@ -55,7 +55,7 @@ export default function AddBookPhotoScreen({ navigation }) {
   const launchPicker = async (index, type) => {
     const options = {
       mediaTypes: ['images'],
-      quality: 0.7,
+      quality: 0.5, // Garante imagens otimizadas abaixo do teto de 700 KB
       allowsEditing: true,
       aspect: [3, 4],
     };
@@ -106,40 +106,6 @@ export default function AddBookPhotoScreen({ navigation }) {
         }
       }
 
-      // Tenta avaliar condição por Visão Computacional no backend
-      setUploadStepText('Analisando conservação com Inteligência Artificial...');
-      try {
-        const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.51:8000';
-        
-        // Lê as fotos como base64 diretamente com FileSystem (100% suportado no React Native)
-        const base64Fotos = [];
-        const slots = ['capa', 'lombada', 'contracapa'];
-        for (let i = 0; i < photos.length; i++) {
-          const b64 = await FileSystem.readAsStringAsync(photos[i].uri, { encoding: 'base64' });
-          base64Fotos.push({ slot: slots[i], base64: b64 });
-        }
-
-        const res = await fetch(`${apiUrl}/anuncios/avaliar-condicao-base64`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ fotos: base64Fotos }),
-        });
-
-        if (res.ok) {
-          const aiData = await res.json();
-          if (aiData?.condicao) {
-            suggestedCondition = aiData.condicao;
-            aiJustification = aiData.justificativa || '';
-          }
-        } else {
-          console.log('Erro HTTP na IA:', res.status, await res.text());
-        }
-      } catch (aiErr) {
-        console.log('Avaliação por IA ignorada ou offline:', aiErr);
-      }
-
     } catch (err) {
       console.log('Upload error:', err);
       Alert.alert('Erro no Upload', 'Não foi possível enviar as fotos. Tente novamente.');
@@ -149,10 +115,11 @@ export default function AddBookPhotoScreen({ navigation }) {
 
     setUploading(false);
     const finalCoverString = uploadedUrls.join(',');
-    navigation.navigate('AddListingDetails', { 
+
+    // Navega IMEDIATAMENTE para a tela de detalhes sem fazer o usuário esperar a IA
+    navigation.navigate('AddListingDetails', {
       coverUrl: finalCoverString,
-      suggestedCondition,
-      aiJustification
+      fotosUrls: uploadedUrls,
     });
   };
 
@@ -173,9 +140,9 @@ export default function AddBookPhotoScreen({ navigation }) {
         </Text>
 
         {photos.map((item, index) => (
-          <TouchableOpacity 
-            key={item.id} 
-            style={styles.photoSlot} 
+          <TouchableOpacity
+            key={item.id}
+            style={styles.photoSlot}
             onPress={() => handleSelectPhoto(index)}
             activeOpacity={0.8}
           >
@@ -211,17 +178,17 @@ export default function AddBookPhotoScreen({ navigation }) {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Modal Visual de Análise por Inteligência Artificial (2ª VA) */}
+      {/* Modal Visual de Envio das Fotos */}
       {uploading && (
         <View style={styles.loadingOverlay}>
           <View style={styles.loadingCard}>
             <ActivityIndicator size="large" color="#1E88E5" style={{ marginBottom: 16 }} />
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-              <MaterialCommunityIcons name="creation" size={20} color="#1E88E5" />
-              <Text style={styles.loadingTitle}>Avaliando Exemplar...</Text>
+              <Feather name="upload-cloud" size={20} color="#1E88E5" />
+              <Text style={styles.loadingTitle}>Salvando Fotos...</Text>
             </View>
             <Text style={styles.loadingSubtitle}>
-              {uploadStepText || 'Inspecionando capa, lombada e contracapa com Visão Computacional'}
+              {uploadStepText || 'Enviando imagens para o servidor'}
             </Text>
           </View>
         </View>

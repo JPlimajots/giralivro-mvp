@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,19 +13,21 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from '../services/supabase';
+import { api } from '../services/api';
 
 export default function AddListingDetailsScreen({ navigation, route }) {
-  const { 
+  const {
     coverUrl = 'https://covers.openlibrary.org/b/id/153253-M.jpg',
-    suggestedCondition,
-    aiJustification: routeAiJustification
+    fotosUrls = [],
+    suggestedCondition: initialSuggestedCondition,
+    aiJustification: initialAiJustification
   } = route.params || {};
 
   const [isbn, setIsbn] = useState('');
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [description, setDescription] = useState('');
-  const [genre, setGenre] = useState(''); 
+  const [genre, setGenre] = useState('');
   const [searchingIsbn, setSearchingIsbn] = useState(false);
 
   const [isTrade, setIsTrade] = useState(true);
@@ -33,16 +35,90 @@ export default function AddListingDetailsScreen({ navigation, route }) {
   const [isDonation, setIsDonation] = useState(false);
   const [price, setPrice] = useState('');
 
-  const [condition, setCondition] = useState(suggestedCondition || 'Excelente');
-  const [conditionOrigin, setConditionOrigin] = useState(suggestedCondition ? 'IA' : 'MANUAL');
-  const [aiJustification, setAiJustification] = useState(routeAiJustification || '');
+  // Estado de conservação: travado enquanto a IA avalia em background
+  const [analyzingAi, setAnalyzingAi] = useState(fotosUrls && fotosUrls.length > 0 && !initialSuggestedCondition);
+  const [condition, setCondition] = useState(initialSuggestedCondition || null);
+  const [conditionOrigin, setConditionOrigin] = useState(initialSuggestedCondition ? 'IA' : 'MANUAL');
+  const [aiJustification, setAiJustification] = useState(initialAiJustification || '');
   const [publishing, setPublishing] = useState(false);
+
+  // Executa avaliação por IA em background sem bloquear a navegação do usuário
+  useEffect(() => {
+    // Se não há fotos ou já temos condição sugerida, não executa
+    if (!fotosUrls || fotosUrls.length === 0 || initialSuggestedCondition) {
+      if (!initialSuggestedCondition && !condition) {
+        setCondition('Excelente');
+      }
+      return;
+    }
+
+    let isMounted = true;
+
+    const evaluateAsync = async () => {
+      try {
+        const slots = ['capa', 'lombada', 'contracapa'];
+        const fotosUrlsPayload = fotosUrls.map((url, idx) => ({
+          slot: slots[idx] || 'capa',
+          url: url,
+        }));
+
+        console.log('Iniciando avaliação por IA em background...', fotosUrlsPayload);
+
+        const vercelVisionUrl = process.env.EXPO_PUBLIC_VISION_API_URL || 'https://giralivro-visao.vercel.app/api/avaliar-condicao';
+        const apiKey = process.env.EXPO_PUBLIC_VISION_API_KEY || 'yNq7xF4A2vtvu8STs83ZtX';
+
+        console.log('[Vercel Vision] POST ->', vercelVisionUrl);
+        const response = await fetch(vercelVisionUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': apiKey,
+          },
+          body: JSON.stringify({ fotos: fotosUrlsPayload }),
+        });
+
+        const rawText = await response.text();
+        console.log('[Vercel Vision] status', response.status, rawText);
+        if (!response.ok) {
+          throw new Error(`Vercel ${response.status}: ${rawText}`);
+        }
+        const aiData = JSON.parse(rawText);
+
+        if (isMounted && aiData) {
+          if (aiData?.condicao) {
+            setCondition(aiData.condicao);
+            setConditionOrigin('IA');
+            setAiJustification(aiData.justificativa || '');
+          } else {
+            setCondition('Péssimo');
+            setConditionOrigin('IA');
+            if (aiData?.justificativa) setAiJustification(aiData.justificativa);
+          }
+        }
+      } catch (err) {
+        console.log('[IA Background] Erro:', err?.message || err);
+        if (isMounted) {
+          setCondition('Bom');
+          setAiJustification(`Não foi possível avaliar via IA (${err?.message || 'erro'}). Selecione a condição manualmente.`);
+        }
+      } finally {
+        if (isMounted) {
+          setAnalyzingAi(false);
+        }
+      }
+    };
+
+    evaluateAsync();
+    return () => {
+      isMounted = false;
+    };
+  }, [coverUrl]);
 
   // 1. Lista de Gêneros Traduzida para PT-BR
   const CATEGORIES = [
-    'Fantasia', 'Ficção Histórica', 'Terror', 'Humor', 'Literatura', 
-    'Magia', 'Mistério e Detetive', 'Teatro', 'Poesia', 
-    'Romance', 'Ficção Científica', 'Contos', 'Suspense', 
+    'Fantasia', 'Ficção Histórica', 'Terror', 'Humor', 'Literatura',
+    'Magia', 'Mistério e Detetive', 'Teatro', 'Poesia',
+    'Romance', 'Ficção Científica', 'Contos', 'Suspense',
     'Jovem Adulto', 'Outros'
   ];
 
@@ -55,21 +131,21 @@ export default function AddListingDetailsScreen({ navigation, route }) {
     setSearchingIsbn(true);
     try {
       const cleanIsbn = isbn.replace(/\D/g, '');
-      
+
       const res = await fetch(`https://openlibrary.org/search.json?q=${cleanIsbn}`);
       const data = await res.json();
-      
+
       if (data.docs && data.docs.length > 0) {
         const bookData = data.docs[0];
         const fetchedTitle = bookData.title || '';
         const fetchedAuthor = bookData.author_name ? bookData.author_name.join(', ') : '';
-        
+
         setTitle(fetchedTitle);
         setAuthor(fetchedAuthor);
-        
+
         // 1. Tenta pegar os assuntos da busca rápida (subject sem 's')
         let fetchedSubjects = bookData.subject || [];
-        
+
         // 2. DEEP FETCH: Se vier vazio, mas temos a chave da Obra, fazemos uma busca profunda!
         if (fetchedSubjects.length === 0 && bookData.key) {
           try {
@@ -89,9 +165,9 @@ export default function AddListingDetailsScreen({ navigation, route }) {
             .map(s => typeof s === 'string' ? s : s.name || s.value || '')
             .join(' ')
             .toLowerCase();
-          
+
           console.log("🛠️ Assuntos Encontrados (Deep Fetch):", subStr);
-          
+
           // Dicionário de mapeamento com palavras-chave
           const genreMappings = [
             { keys: ['science fiction', 'sci-fi', 'cyberpunk'], genre: 'Ficção Científica' },
@@ -126,9 +202,9 @@ export default function AddListingDetailsScreen({ navigation, route }) {
           setGenre(bestMatch);
         } else {
           console.log("🛠️ Nenhum assunto encontrado.");
-          setGenre('Outros'); 
+          setGenre('Outros');
         }
-        
+
         Alert.alert('Obra Encontrada!', `Preenchemos automaticamente: "${fetchedTitle}" por ${fetchedAuthor}`);
       } else {
         Alert.alert('ISBN não encontrado', 'Não encontramos este ISBN na base pública. Preencha o título e autor manualmente.');
@@ -156,7 +232,7 @@ export default function AddListingDetailsScreen({ navigation, route }) {
       return;
     }
 
-    let dbModality = 'TROCA'; 
+    let dbModality = 'TROCA';
     if (isDonation) {
       dbModality = 'DOACAO';
     } else if (isSale && isTrade) {
@@ -170,7 +246,7 @@ export default function AddListingDetailsScreen({ navigation, route }) {
     const conditionMap = {
       'Novo': 'NOVO',
       'Excelente': 'EXCELENTE',
-      'Com marcas': 'COM_MARCAS' 
+      'Com marcas': 'COM_MARCAS'
     };
     const dbCondition = conditionMap[condition];
 
@@ -212,7 +288,7 @@ export default function AddListingDetailsScreen({ navigation, route }) {
           user_id: user.id,
           book_id: bookId,
           transaction_type: dbModality,
-          condition: condition, 
+          condition: condition,
           condition_origin: conditionOrigin,
           condition_ai_justification: aiJustification || null,
           price: isSale && price ? parseFloat(price) : null,
@@ -328,16 +404,32 @@ export default function AddListingDetailsScreen({ navigation, route }) {
         </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20, marginBottom: 12 }}>
-          <Text style={styles.sectionHeader}>Estado de Conservação</Text>
-          {conditionOrigin === 'IA' && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={styles.sectionHeader}>Estado de Conservação</Text>
+            {analyzingAi && (
+              <Feather name="lock" size={16} color="#F57C00" style={{ marginLeft: 4 }} />
+            )}
+          </View>
+          {analyzingAi ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF3E0', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, gap: 6 }}>
+              <ActivityIndicator size="small" color="#F57C00" />
+              <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: '#E65100' }}>IA Analisando...</Text>
+            </View>
+          ) : conditionOrigin === 'IA' ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#E3F2FD', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, gap: 4 }}>
               <MaterialCommunityIcons name="creation" size={14} color="#1E88E5" />
               <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: '#1E88E5' }}>Sugerido por IA</Text>
             </View>
-          )}
+          ) : null}
         </View>
 
-        {aiJustification ? (
+        {analyzingAi ? (
+          <View style={{ backgroundColor: '#FFF8E1', padding: 12, borderRadius: 8, marginBottom: 14, borderWidth: 1, borderColor: '#FFE082' }}>
+            <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: '#B78103', lineHeight: 17 }}>
+              ⏳ A Inteligência Artificial está inspecionando as fotos do exemplar em segundo plano. As opções serão liberadas automaticamente assim que a análise for concluída.
+            </Text>
+          </View>
+        ) : aiJustification ? (
           <View style={{ backgroundColor: '#F0F7FF', padding: 12, borderRadius: 8, marginBottom: 14, borderWidth: 1, borderColor: '#BBDEFB' }}>
             <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: '#1565C0', lineHeight: 17 }}>
               💡 {aiJustification}
@@ -345,15 +437,21 @@ export default function AddListingDetailsScreen({ navigation, route }) {
           </View>
         ) : null}
 
-        <View style={styles.conditionRow}>
+        <View style={[styles.conditionRow, analyzingAi && { opacity: 0.5 }]}>
           {['Excelente', 'Bom', 'Ruim', 'Péssimo'].map((c) => (
             <TouchableOpacity
               key={c}
-              style={[styles.conditionChip, condition === c && styles.conditionChipActive]}
+              style={[
+                styles.conditionChip,
+                condition === c && styles.conditionChipActive,
+                analyzingAi && { backgroundColor: '#ECEFF1', borderColor: '#CFD8DC' }
+              ]}
               onPress={() => {
+                if (analyzingAi) return;
                 setCondition(c);
                 setConditionOrigin('MANUAL');
               }}
+              disabled={analyzingAi}
               accessibilityLabel={`Condição ${c}`}
             >
               <Text style={[styles.conditionChipText, condition === c && styles.conditionChipTextActive]}>

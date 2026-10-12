@@ -178,7 +178,7 @@ def test_gemini_vision_foto_que_nao_e_livro():
 
         with patch.dict("os.environ", {"GEMINI_API_KEY": "fake_key"}):
             res = evaluate_book_condition_with_gemini([{"slot": "capa", "bytes": buf.getvalue()}])
-            assert res.condicao is None
+            assert res.condicao == CondicaoLivroEnum.PESSIMO
             assert res.fotos[0].eh_livro is False
             assert res.fotos[0].tipo_detectado == TipoFotoDetectado.NAO_E_LIVRO
 

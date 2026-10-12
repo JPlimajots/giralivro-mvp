@@ -3,14 +3,17 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ENV_API_URL = process.env.EXPO_PUBLIC_API_URL;
-const DEFAULT_URL = Platform.OS === 'web' ? 'http://localhost:8000' : 'http://192.168.0.172:8000';
+const DEFAULT_URL = Platform.OS === 'web' ? 'http://localhost:8000' : 'http://192.168.1.51:8000';
 const API_BASE_URL = ENV_API_URL || DEFAULT_URL;
+
+const API_KEY = process.env.EXPO_PUBLIC_API_KEY || 'giralivro_secret_key_release2';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 3000,
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
+    'X-API-Key': API_KEY,
   },
 });
 

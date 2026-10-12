@@ -1,3 +1,9 @@
+import os
+from dotenv import load_dotenv
+
+# Carrega as variáveis de ambiente do .env explicitamente
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import supabase

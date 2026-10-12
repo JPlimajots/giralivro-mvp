@@ -23,14 +23,26 @@ def validate_image_locally(image_bytes: bytes) -> Tuple[bool, Optional[str], Opt
     if len(image_bytes) == 0:
         return False, "Arquivo de imagem vazio.", None
 
-    if len(image_bytes) > 25 * 1024 * 1024:
-        return False, "Imagem excede o tamanho máximo de 25 MB.", None
+    MAX_BYTES = 700 * 1024  # 700 KB
 
     try:
         img = Image.open(io.BytesIO(image_bytes))
         img.verify()  # Verifica integridade dos bytes
         # Reabre para operações porque verify fecha os buffers
         img = Image.open(io.BytesIO(image_bytes))
+
+        # Se exceder 700 KB, comprime e redimensiona automaticamente para caber no limite
+        if len(image_bytes) > MAX_BYTES:
+            print(f"[RESIZE FOTO] Reduzindo foto de {len(image_bytes) // 1024} KB para o limite de 700 KB...", flush=True)
+            img.thumbnail((1200, 1200))
+            out_buf = io.BytesIO()
+            img.convert('RGB').save(out_buf, format='JPEG', quality=80, optimize=True)
+            # Se ainda passar, reduz qualidade progressivamente
+            if out_buf.tell() > MAX_BYTES:
+                out_buf = io.BytesIO()
+                img.thumbnail((800, 800))
+                img.convert('RGB').save(out_buf, format='JPEG', quality=65, optimize=True)
+            img = Image.open(out_buf)
 
         if img.width < 100 or img.height < 100:
             return False, "Resolução da imagem é muito baixa (mínimo 100x100).", None
@@ -85,8 +97,8 @@ def evaluate_book_condition_with_gemini(
                 "problema": error_msg
             })
         else:
-            # Redimensiona para lado maior <= 1024 para economizar tokens e tráfego
-            img.thumbnail((1024, 1024))
+            # Redimensiona para lado maior <= 480 para resposta ultrarrápida (<3.5s) e poupar cota
+            img.thumbnail((480, 480))
             valid_pillow_images.append((idx, slot, img))
 
     if not valid_pillow_images:
@@ -99,10 +111,11 @@ def evaluate_book_condition_with_gemini(
             fotos=inspected_photos
         )
 
-    # 2. Prepara chamada ao modelo multimodal Gemini (compatível com a cota Free)
+    # 2. Prepara chamada ao modelo multimodal Gemini ultrarrápido
     try:
+        print("[VISÃO IA] Iniciando análise multimodal com modelo gemini-flash-lite-latest...", flush=True)
         model = genai.GenerativeModel(
-            model_name="gemini-flash-latest",
+            model_name="gemini-flash-lite-latest",
             generation_config={
                 "response_mime_type": "application/json",
                 "temperature": 0.2,
@@ -123,15 +136,26 @@ def evaluate_book_condition_with_gemini(
 
         # Valida via Pydantic
         output = AvaliacaoCondicaoOutput.model_validate(raw_json)
+
+        # Se a IA detectou que as fotos NÃO são de livros, define condição como Péssimo
+        tem_foto_livro = any(f.eh_livro for f in output.fotos) if output.fotos else False
+        if not tem_foto_livro or output.condicao is None:
+            output.condicao = CondicaoLivroEnum.PESSIMO
+            output.confianca = 1.0
+            if not output.justificativa or "livro" not in output.justificativa.lower():
+                output.justificativa = "As fotos enviadas não mostram um livro reconhecível (marcado como Péssimo)."
+
+        print(f"[VISÃO IA] Análise concluída: {output.condicao} (confiança: {output.confianca}) - Justificativa: {output.justificativa}", flush=True)
         return output
 
     except Exception as e:
+        print(f"[VISÃO IA] Aviso/Falha na API Gemini: {e}", flush=True)
         # Fallback seguro para erro de API / quota esgotada (429) / timeout
         return AvaliacaoCondicaoOutput(
             condicao=None,
             confianca=0.0,
             defeitos_detectados=[],
-            justificativa=f"A avaliação automática por IA está temporariamente indisponível ({str(e)[:60]}). Você pode selecionar o estado manualmente.",
+            justificativa="Avaliação por IA indisponível no momento. Por favor, confirme o estado manualmente.",
             fotos_insuficientes=False,
             fotos=inspected_photos
         )

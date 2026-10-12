@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "routes": [
+    {
+      "src": "/anuncios/avaliar-condicao-urls",
+      "dest": "/api/avaliar-condicao"
+    },
+    {
+      "src": "/api/avaliar-condicao",
+      "dest": "/api/avaliar-condicao"
+    }
+  ]
+}
