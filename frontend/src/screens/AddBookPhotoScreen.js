@@ -26,6 +26,7 @@ export default function AddBookPhotoScreen({ navigation }) {
     { id: 'back', label: '3. Contracapa', desc: 'Parte de trás', uri: null }
   ]);
   const [uploading, setUploading] = useState(false);
+  const [uploadStepText, setUploadStepText] = useState('');
 
   const requestPermissions = async () => {
     const cameraPerm = await ImagePicker.requestCameraPermissionsAsync();
@@ -81,6 +82,7 @@ export default function AddBookPhotoScreen({ navigation }) {
     }
 
     setUploading(true);
+    setUploadStepText('Enviando fotos das 3 faces...');
     const uploadedUrls = [];
     let suggestedCondition = null;
     let aiJustification = '';
@@ -88,6 +90,7 @@ export default function AddBookPhotoScreen({ navigation }) {
     try {
       // Faz o upload sequencial das 3 imagens para o Supabase Storage
       for (let i = 0; i < photos.length; i++) {
+        setUploadStepText(`Enviando foto ${i + 1} de 3...`);
         const filename = `cover_${Date.now()}_${i}.jpg`;
         const base64 = await FileSystem.readAsStringAsync(photos[i].uri, { encoding: 'base64' });
 
@@ -103,7 +106,8 @@ export default function AddBookPhotoScreen({ navigation }) {
         }
       }
 
-      // Tenta avaliar condição por Visão Computacional no backend (sem bloquear publicação em caso de erro/timeout)
+      // Tenta avaliar condição por Visão Computacional no backend
+      setUploadStepText('Analisando conservação com Inteligência Artificial...');
       try {
         const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
         const formData = new FormData();
@@ -201,12 +205,31 @@ export default function AddBookPhotoScreen({ navigation }) {
           activeOpacity={0.8}
         >
           {uploading ? (
-            <ActivityIndicator color="#FFF" />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <ActivityIndicator color="#FFF" size="small" />
+              <Text style={styles.primaryButtonText}>{uploadStepText || 'Enviando fotos...'}</Text>
+            </View>
           ) : (
             <Text style={styles.primaryButtonText}>Avançar para Detalhes</Text>
           )}
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Modal Visual de Análise por Inteligência Artificial (2ª VA) */}
+      {uploading && (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingCard}>
+            <ActivityIndicator size="large" color="#1E88E5" style={{ marginBottom: 16 }} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <Feather name="sparkles" size={18} color="#1E88E5" />
+              <Text style={styles.loadingTitle}>Avaliando Exemplar...</Text>
+            </View>
+            <Text style={styles.loadingSubtitle}>
+              {uploadStepText || 'Inspecionando capa, lombada e contracapa com Visão Computacional'}
+            </Text>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -227,4 +250,37 @@ const styles = StyleSheet.create({
   primaryButton: { backgroundColor: '#1E88E5', height: 52, borderRadius: 26, justifyContent: 'center', alignItems: 'center', marginTop: 16 },
   buttonDisabled: { backgroundColor: '#90CAF9' },
   primaryButtonText: { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: '#FFFFFF' },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+    zIndex: 999,
+  },
+  loadingCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 320,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+  },
+  loadingTitle: {
+    fontFamily: 'Nunito_700Bold',
+    fontSize: 18,
+    color: '#212121',
+  },
+  loadingSubtitle: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
 });

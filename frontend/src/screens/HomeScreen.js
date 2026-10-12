@@ -126,17 +126,10 @@ export default function HomeScreen({ navigation }) {
         </View>
 
         <View style={styles.headerIconsRow}>
-          <TouchableOpacity 
-            style={styles.iconBtn} 
-            onPress={() => navigation.navigate('ChatList')}
-            accessibilityLabel="Minhas mensagens de chat"
-          >
-            <Feather name="message-square" size={22} color="#1E88E5" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Search')}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Search')} accessibilityLabel="Buscar livros">
             <Feather name="search" size={22} color="#333" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Profile')}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Profile')} accessibilityLabel="Meu perfil">
             <Feather name="user" size={22} color="#333" />
           </TouchableOpacity>
         </View>
@@ -255,28 +248,28 @@ export default function HomeScreen({ navigation }) {
         )}
       </ScrollView>
 
-      {/* Bottom Bar de Navegação */}
-      <View style={[styles.bottomBar, { height: 64 + insets.bottom, padding: insets.bottom}]}>
-        <TouchableOpacity style={styles.bottomTabActive}>
+      {/* Bottom Bar de Navegação com aba de Mensagens e altura adaptável */}
+      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12), height: 72 + Math.max(insets.bottom, 12) }]}>
+        <TouchableOpacity style={styles.bottomTabActive} accessibilityLabel="Início">
           <Feather name="home" size={20} color="#1E88E5" />
           <Text style={styles.bottomTabActiveText}>Início</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.bottomTab} onPress={() => navigation.navigate('Search')}>
-          <Feather name="search" size={20} color="#9E9E9E" />
-          <Text style={styles.bottomTabText}>Buscar</Text>
+        <TouchableOpacity style={styles.bottomTab} onPress={() => navigation.navigate('ChatList')} accessibilityLabel="Mensagens">
+          <Feather name="message-square" size={20} color="#9E9E9E" />
+          <Text style={styles.bottomTabText}>Mensagens</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.bottomTabFab} onPress={() => navigation.navigate('AddBookPhoto')}>
+        <TouchableOpacity style={styles.bottomTabFab} onPress={() => navigation.navigate('AddBookPhoto')} accessibilityLabel="Cadastrar Livro">
           <Feather name="plus" size={24} color="#FFF" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.bottomTab} onPress={() => navigation.navigate('Wishlist')}>
+        <TouchableOpacity style={styles.bottomTab} onPress={() => navigation.navigate('Wishlist')} accessibilityLabel="Wishlist">
           <Feather name="heart" size={20} color="#9E9E9E" />
           <Text style={styles.bottomTabText}>Wishlist</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.bottomTab} onPress={() => navigation.navigate('Profile')}>
+        <TouchableOpacity style={styles.bottomTab} onPress={() => navigation.navigate('Profile')} accessibilityLabel="Perfil">
           <Feather name="user" size={20} color="#9E9E9E" />
           <Text style={styles.bottomTabText}>Perfil</Text>
         </TouchableOpacity>
