@@ -58,11 +58,17 @@ export default function HomeScreen({ navigation }) {
         setUserName(name.split(' ')[0].toUpperCase());
 
         if (zip) {
-          const addr = await getAddressFromCep(zip);
-          if (addr?.formatted) {
-            setLocationText(addr.formatted);
-          } else {
-            setLocationText(`CEP ${zip}`);
+          console.log('📍 CEP detectado do usuário:', zip);
+          // Define de imediato o fallback com o número do CEP para nunca ficar em branco
+          setLocationText(`CEP ${zip}`);
+          
+          try {
+            const addr = await getAddressFromCep(zip);
+            if (addr?.formatted) {
+              setLocationText(addr.formatted);
+            }
+          } catch (cepErr) {
+            console.log('ViaCEP indisponível, mantendo número do CEP:', cepErr);
           }
         } else {
           setLocationText('');
