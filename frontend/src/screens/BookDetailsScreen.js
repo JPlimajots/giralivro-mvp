@@ -175,19 +175,34 @@ export default function BookDetailsScreen({ route, navigation }) {
             </View>
           )}
 
-          <TouchableOpacity style={styles.floatBackBtn} onPress={() => navigation.goBack()}>
+          <TouchableOpacity 
+            style={styles.floatBackBtn} 
+            onPress={() => navigation.goBack()}
+            accessibilityLabel="Voltar para a tela anterior"
+            accessibilityRole="button"
+          >
             <Icon name="arrow-left" size={24} color="#333" />
           </TouchableOpacity>
 
           <View style={styles.rightFloatContainer}>
-            <TouchableOpacity style={styles.floatIconBtn} onPress={() => setFavorite(!favorite)}>
+            <TouchableOpacity 
+              style={styles.floatIconBtn} 
+              onPress={() => setFavorite(!favorite)}
+              accessibilityLabel={favorite ? "Remover dos favoritos" : "Salvar nos favoritos"}
+              accessibilityRole="button"
+            >
               <Icon
                 name={favorite ? "heart" : "heart-outline"}
                 size={24}
                 color={favorite ? "#E53935" : "#333"}
               />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.floatIconBtn} onPress={handleShare}>
+            <TouchableOpacity 
+              style={styles.floatIconBtn} 
+              onPress={handleShare}
+              accessibilityLabel="Compartilhar este anúncio"
+              accessibilityRole="button"
+            >
               <Icon name="share-variant" size={22} color="#333" />
             </TouchableOpacity>
           </View>
@@ -314,9 +329,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 48,
     left: 16,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(255,255,255,0.9)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -329,9 +344,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row'
   },
   floatIconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(255,255,255,0.9)',
     justifyContent: 'center',
     alignItems: 'center',

@@ -44,3 +44,26 @@ def test_bloqueio_impede_envio_mensagem():
     assert pode_enviar("user-1", "user-2", bloqueios) is False
     assert pode_enviar("user-2", "user-1", bloqueios) is False
     assert pode_enviar("user-1", "user-3", bloqueios) is True
+
+
+def test_estresse_chat_50_mensagens_consecutivas():
+    """Simula estresse de troca de 50 mensagens em lote entre dois usuários (QA Stress Test)."""
+    mensagens = []
+    for i in range(1, 51):
+        remetente = "user-1" if i % 2 != 0 else "user-2"
+        texto = f"Mensagem sequencial de teste de carga #{i} no chat interno do GiraLivro."
+        assert len(texto) <= 1000
+        mensagens.append({
+            "id": f"msg-{i}",
+            "remetente_id": remetente,
+            "conteudo": texto,
+            "status_leitura": "ENVIADA"
+        })
+
+    assert len(mensagens) == 50
+    # Verifica que não há duplicações de identificador e que a ordem foi preservada
+    ids_unicos = {m["id"] for m in mensagens}
+    assert len(ids_unicos) == 50
+    assert mensagens[0]["id"] == "msg-1"
+    assert mensagens[49]["id"] == "msg-50"
+

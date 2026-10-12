@@ -239,7 +239,13 @@ export default function ProfileScreen({ navigation }) {
 
         {/* Ações Rápidas */}
         <Text style={styles.sectionTitle}>Sua Estante Virtual</Text>
-        <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} onPress={() => navigation.navigate('MyVirtualShelf')}>
+        <TouchableOpacity 
+          style={styles.actionCard} 
+          activeOpacity={0.8} 
+          onPress={() => navigation.navigate('MyVirtualShelf')}
+          accessibilityLabel="Gerenciar minha estante virtual de livros"
+          accessibilityRole="button"
+        >
           <View style={styles.actionIconBg}>
             <Feather name="book-open" size={22} color="#1E88E5" />
           </View>
@@ -250,7 +256,13 @@ export default function ProfileScreen({ navigation }) {
           <Feather name="chevron-right" size={20} color="#9E9E9E" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} onPress={() => navigation.navigate('AddBookPhoto')}>
+        <TouchableOpacity 
+          style={styles.actionCard} 
+          activeOpacity={0.8} 
+          onPress={() => navigation.navigate('AddBookPhoto')}
+          accessibilityLabel="Cadastrar novos livros na sua estante"
+          accessibilityRole="button"
+        >
           <View style={[styles.actionIconBg, { backgroundColor: '#E8F5E9' }]}>
             <Feather name="plus-circle" size={22} color="#43A047" />
           </View>
@@ -262,7 +274,13 @@ export default function ProfileScreen({ navigation }) {
         </TouchableOpacity>
 
         <Text style={styles.sectionTitle}>Sua Wishlist</Text>
-        <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} onPress={() => navigation.navigate('Wishlist')}>
+        <TouchableOpacity 
+          style={styles.actionCard} 
+          activeOpacity={0.8} 
+          onPress={() => navigation.navigate('Wishlist')}
+          accessibilityLabel="Visualizar minha lista de desejos"
+          accessibilityRole="button"
+        >
           <View style={[styles.actionIconBg, { backgroundColor: '#FFF3E0' }]}>
             <Feather name="heart" size={22} color="#F57C00" />
           </View>
@@ -278,6 +296,8 @@ export default function ProfileScreen({ navigation }) {
           style={styles.logoutButton}
           onPress={() => setLogoutModalVisible(true)}
           activeOpacity={0.8}
+          accessibilityLabel="Sair da conta atual"
+          accessibilityRole="button"
         >
           <Feather name="log-out" size={20} color="#D32F2F" style={{ marginRight: 8 }} />
           <Text style={styles.logoutButtonText}>Sair da Conta</Text>

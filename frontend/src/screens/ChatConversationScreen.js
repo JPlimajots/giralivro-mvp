@@ -457,8 +457,12 @@ const styles = StyleSheet.create({
     borderBottomColor: '#EEEEEE',
   },
   backButton: {
-    padding: 6,
-    marginRight: 8,
+    padding: 10,
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 4,
   },
   headerInfo: {
     flex: 1,
@@ -474,8 +478,12 @@ const styles = StyleSheet.create({
     color: '#757575',
   },
   menuButton: {
-    padding: 8,
-    marginLeft: 6,
+    padding: 10,
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 2,
   },
   bookSummaryCard: {
     flexDirection: 'row',
@@ -659,9 +667,9 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
   },
   sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#1E88E5',
     justifyContent: 'center',
     alignItems: 'center',

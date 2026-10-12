@@ -99,24 +99,35 @@ export default function SearchScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       {/* Header com Busca e Filtros */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity 
+          onPress={() => navigation.goBack()} 
+          style={styles.backBtn}
+          accessibilityLabel="Voltar para a tela anterior"
+          accessibilityRole="button"
+        >
           <Feather name="arrow-left" size={24} color="#333" />
         </TouchableOpacity>
 
         <View style={styles.searchInputContainer}>
-          <Feather name="search" size={18} color="#9E9E9E" />
+          <Feather name="search" size={18} color="#757575" />
           <TextInput
             style={styles.searchInput}
             placeholder="Buscar por obra, autor, ISBN..."
-            placeholderTextColor="#9E9E9E"
+            placeholderTextColor="#757575"
             value={queryText}
             onChangeText={setQueryText}
             onSubmitEditing={performSearch}
+            accessibilityLabel="Campo de busca de livros"
           />
         </View>
 
-        <TouchableOpacity style={styles.filterBtn} onPress={() => setFilterModalVisible(true)}>
-          <Feather name="sliders" size={20} color="#1E88E5" />
+        <TouchableOpacity 
+          style={styles.filterBtn} 
+          onPress={() => setFilterModalVisible(true)}
+          accessibilityLabel="Filtrar resultados de busca"
+          accessibilityRole="button"
+        >
+          <Feather name="sliders" size={20} color="#1565C0" />
         </TouchableOpacity>
       </View>
 
@@ -125,11 +136,15 @@ export default function SearchScreen({ navigation }) {
           <Text style={styles.resultsCountText}>
             {results.length} resultado(s) encontrado(s)
           </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
+          <TouchableOpacity 
+            onPress={() => navigation.navigate('Profile')}
+            accessibilityLabel="Alterar localização ou CEP no perfil"
+            accessibilityRole="button"
+          >
             {locationTagText ? (
               <Text style={styles.locationTag}>{locationTagText}</Text>
             ) : (
-              <Text style={[styles.locationTag, { color: '#828282', fontStyle: 'italic' }]}>
+              <Text style={[styles.locationTag, { color: '#616161', fontStyle: 'italic' }]}>
                 📍 CEP não cadastrado — toque para adicionar
               </Text>
             )}
@@ -210,7 +225,11 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   backBtn: {
-    padding: 4,
+    padding: 10,
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   searchInputContainer: {
     flex: 1,
@@ -219,17 +238,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F6',
     borderRadius: 8,
     paddingHorizontal: 12,
-    height: 44,
+    height: 48,
   },
   searchInput: {
     flex: 1,
     marginLeft: 8,
     fontFamily: 'Inter_400Regular',
     fontSize: 14,
-    color: '#333',
+    color: '#212121',
   },
   filterBtn: {
-    padding: 8,
+    padding: 10,
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: '#E3F2FD',
     borderRadius: 8,
   },
