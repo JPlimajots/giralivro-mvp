@@ -107,3 +107,78 @@ def test_gemini_vision_mock_parsing_schema():
             assert resultado.confianca == 0.95
             assert resultado.fotos[0].eh_livro is True
             assert resultado.fotos[0].tipo_detectado == TipoFotoDetectado.CAPA
+
+@pytest.mark.parametrize("condicao_esperada,defeitos", [
+    (CondicaoLivroEnum.EXCELENTE, []),
+    (CondicaoLivroEnum.BOM, ["Leves desgastes nas bordas"]),
+    (CondicaoLivroEnum.RUIM, ["Páginas amareladas", "Orelhas nas pontas"]),
+    (CondicaoLivroEnum.PESSIMO, ["Páginas soltas", "Danos por umidade"]),
+])
+def test_gemini_vision_todos_niveis_de_condicao(condicao_esperada, defeitos):
+    """VC: Valida que o schema aceita e classifica corretamente os 4 níveis: Excelente, Bom, Ruim e Péssimo."""
+    mock_response = MagicMock()
+    mock_response.text = f'''{{
+        "condicao": "{condicao_esperada.value}",
+        "confianca": 0.88,
+        "defeitos_detectados": {str(defeitos).replace("'", '"')},
+        "justificativa": "Classificado como {condicao_esperada.value} com base na integridade física.",
+        "fotos_insuficientes": false,
+        "fotos": [
+            {{
+                "indice": 0,
+                "slot_declarado": "capa",
+                "tipo_detectado": "capa",
+                "eh_livro": true,
+                "qualidade_ok": true,
+                "problema": null
+            }}
+        ]
+    }}'''
+
+    img = Image.new("RGB", (250, 250), color="blue")
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+
+    with patch("google.generativeai.GenerativeModel") as MockModel:
+        instance = MockModel.return_value
+        instance.generate_content.return_value = mock_response
+
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "fake_key"}):
+            res = evaluate_book_condition_with_gemini([{"slot": "capa", "bytes": buf.getvalue()}])
+            assert res.condicao == condicao_esperada
+
+def test_gemini_vision_foto_que_nao_e_livro():
+    """VC: Foto de pessoa/objeto não-livro é detectada com eh_livro: false e condicao: null."""
+    mock_response = MagicMock()
+    mock_response.text = '''{
+        "condicao": null,
+        "confianca": 0.0,
+        "defeitos_detectados": [],
+        "justificativa": "A foto enviada não parece ser de um livro. Por favor, envie uma nova foto.",
+        "fotos_insuficientes": true,
+        "fotos": [
+            {
+                "indice": 0,
+                "slot_declarado": "capa",
+                "tipo_detectado": "nao_e_livro",
+                "eh_livro": false,
+                "qualidade_ok": true,
+                "problema": "Objeto não corresponde a um livro"
+            }
+        ]
+    }'''
+
+    img = Image.new("RGB", (250, 250), color="green")
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+
+    with patch("google.generativeai.GenerativeModel") as MockModel:
+        instance = MockModel.return_value
+        instance.generate_content.return_value = mock_response
+
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "fake_key"}):
+            res = evaluate_book_condition_with_gemini([{"slot": "capa", "bytes": buf.getvalue()}])
+            assert res.condicao is None
+            assert res.fotos[0].eh_livro is False
+            assert res.fotos[0].tipo_detectado == TipoFotoDetectado.NAO_E_LIVRO
+
