@@ -18,6 +18,7 @@ import { COLORS } from '../constants/theme';
 export default function MyVirtualShelfScreen({ navigation }) {
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('DISPONIVEIS'); // 'DISPONIVEIS', 'RESERVADOS', 'HISTORICO'
   const isFocused = useIsFocused(); 
 
   const fetchMyListings = async () => {
@@ -47,6 +48,21 @@ export default function MyVirtualShelfScreen({ navigation }) {
       fetchMyListings();
     }
   }, [isFocused]);
+
+  // Filtragem conforme a aba selecionada (US-08)
+  const filteredListings = listings.filter((item) => {
+    const st = (item.status || 'Disponível').toUpperCase();
+    if (activeTab === 'DISPONIVEIS') {
+      return st === 'DISPONÍVEL' || st === 'DISPONIVEL' || st === 'ATIVO' || st === 'PUBLICADO';
+    }
+    if (activeTab === 'RESERVADOS') {
+      return st === 'RESERVADO';
+    }
+    if (activeTab === 'HISTORICO') {
+      return st === 'TROCADO' || st === 'VENDIDO' || st === 'DOADO' || st === 'NEGOCIADO';
+    }
+    return true;
+  });
 
   const handleMarkAsTraded = async (id) => {
     try {
@@ -101,14 +117,63 @@ export default function MyVirtualShelfScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionTitle}>Seus Anúncios Ativos</Text>
+      {/* Abas de Status da Release 2 (US-08) */}
+      <View style={styles.tabBar}>
+        <TouchableOpacity
+          style={[styles.tabItem, activeTab === 'DISPONIVEIS' && styles.tabItemActive]}
+          onPress={() => setActiveTab('DISPONIVEIS')}
+          accessibilityLabel="Aba de livros disponíveis"
+        >
+          <Text style={[styles.tabText, activeTab === 'DISPONIVEIS' && styles.tabTextActive]}>
+            Disponíveis ({listings.filter(i => {
+              const s = (i.status || '').toUpperCase();
+              return s === 'DISPONÍVEL' || s === 'DISPONIVEL' || s === 'ATIVO' || s === 'PUBLICADO' || !i.status;
+            }).length})
+          </Text>
+        </TouchableOpacity>
 
+        <TouchableOpacity
+          style={[styles.tabItem, activeTab === 'RESERVADOS' && styles.tabItemActive]}
+          onPress={() => setActiveTab('RESERVADOS')}
+          accessibilityLabel="Aba de livros reservados"
+        >
+          <Text style={[styles.tabText, activeTab === 'RESERVADOS' && styles.tabTextActive]}>
+            Reservados ({listings.filter(i => (i.status || '').toUpperCase() === 'RESERVADO').length})
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tabItem, activeTab === 'HISTORICO' && styles.tabItemActive]}
+          onPress={() => setActiveTab('HISTORICO')}
+          accessibilityLabel="Aba de histórico concluído"
+        >
+          <Text style={[styles.tabText, activeTab === 'HISTORICO' && styles.tabTextActive]}>
+            Histórico ({listings.filter(i => {
+              const s = (i.status || '').toUpperCase();
+              return s === 'TROCADO' || s === 'VENDIDO' || s === 'DOADO' || s === 'NEGOCIADO';
+            }).length})
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {loading ? (
           <ActivityIndicator size="large" color={COLORS.primary} style={{ marginVertical: 24 }} />
+        ) : filteredListings.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Feather name="inbox" size={48} color="#BDBDBD" />
+            <Text style={styles.emptyTitle}>Nenhum exemplar nesta aba</Text>
+            <Text style={styles.emptySubtitle}>
+              {activeTab === 'DISPONIVEIS' 
+                ? 'Você não possui livros ativos anunciados no momento.' 
+                : activeTab === 'RESERVADOS' 
+                  ? 'Você não tem nenhum exemplar reservado no momento.' 
+                  : 'Nenhuma negociação concluída no histórico ainda.'}
+            </Text>
+          </View>
         ) : (
           <View style={styles.listingsList}>
-            {listings.map((item) => {
+            {filteredListings.map((item) => {
               const book = item.books || {};
               const title = book.title || item.title || 'Sem título';
               const author = book.author || item.author || '';
@@ -233,9 +298,56 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: COLORS.text,
   },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    paddingHorizontal: 16,
+  },
+  tabItem: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabItemActive: {
+    borderBottomColor: COLORS.primary,
+  },
+  tabText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    color: '#757575',
+  },
+  tabTextActive: {
+    fontFamily: 'Inter_600SemiBold',
+    color: COLORS.primary,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 24,
+  },
+  emptyTitle: {
+    fontFamily: 'Nunito_700Bold',
+    fontSize: 16,
+    color: '#424242',
+    marginTop: 14,
+  },
+  emptySubtitle: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    color: '#9E9E9E',
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 18,
+  },
   content: {
     paddingHorizontal: 24,
     paddingBottom: 40,
+    paddingTop: 16,
   },
   sectionTitle: {
     fontFamily: 'Nunito_700Bold',

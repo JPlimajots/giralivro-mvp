@@ -79,12 +79,16 @@ class ListingUpdate(BaseModel):
     price: Optional[float] = None
     condition: Optional[str] = None
     description: Optional[str] = None
-    status: Optional[str] = None  # 'Publicado', 'Em Negociação', 'Negociado'
+    status: Optional[str] = None  # 'Disponível', 'Reservado', 'Trocado', 'Vendido', 'Doado'
+    reservado_para_id: Optional[str] = None
+    livro_recebido_troca: Optional[str] = None
 
 class ListingResponse(ListingCreate):
     id: str
     user_id: str
-    status: str = "Publicado"
+    status: str = "Disponível"
+    reservado_para_id: Optional[str] = None
+    livro_recebido_troca: Optional[str] = None
     distance_km: float = 1.2
 
 class BookListingPublic(BaseModel):

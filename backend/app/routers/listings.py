@@ -106,10 +106,42 @@ def update_listing(
     current_user: dict = Depends(get_current_user)
 ):
     """
-    Atualiza status da oferta (ex: Editar, Excluir ou 'Marcar como Negociado').
+    Atualiza status da oferta com validação estrita da máquina de estados (409 em transições inválidas) e auditoria.
     """
+    from app.services.status_service import validate_status_transition
+
     user_id = current_user["id"]
     update_payload = {k: v for k, v in update_data.model_dump().items() if v is not None}
+
+    # 1. Se houver tentativa de alteração de status, valida a máquina de estados
+    if "status" in update_payload:
+        current_status = "Disponível"
+        try:
+            current_rec = supabase.table("listings").select("status, user_id").eq("id", listing_id).maybe_single().execute()
+            if current_rec and current_rec.data:
+                if current_rec.data.get("user_id") != user_id:
+                    raise HTTPException(status_code=403, detail="Apenas o anunciante pode alterar o status do anúncio.")
+                current_status = current_rec.data.get("status") or "Disponível"
+        except HTTPException:
+            raise
+        except Exception:
+            pass
+
+        # Validação estrita: levanta 409 Conflict se a transição for ilegal
+        validated_status = validate_status_transition(current_status, update_payload["status"])
+        update_payload["status"] = validated_status
+
+        # Registra auditoria da alteração (US-08)
+        try:
+            supabase.table("auditoria_anuncios").insert({
+                "listing_id": listing_id,
+                "status_anterior": current_status,
+                "novo_status": validated_status,
+                "alterado_por": user_id,
+                "detalhes": f"Transição de {current_status} para {validated_status}"
+            }).execute()
+        except Exception:
+            pass
 
     try:
         res = supabase.table("listings").update(update_payload).eq("id", listing_id).eq("user_id", user_id).execute()
@@ -117,6 +149,8 @@ def update_listing(
             item = res.data[0]
             item["distance_km"] = 0.0
             return item
+    except HTTPException:
+        raise
     except Exception:
         pass
 

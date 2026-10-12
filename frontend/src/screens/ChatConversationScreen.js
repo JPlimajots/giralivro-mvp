@@ -12,10 +12,15 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Feather } from '@expo/vector-icons';
-import { supabase } from '../services/supabase';
-import { fetchMessages, sendMessage, blockUser, reportUser } from '../services/chatService';
+import { 
+  fetchMessages, 
+  sendMessage, 
+  blockUser, 
+  reportUser, 
+  reserveListingForUser, 
+  cancelReservation, 
+  concludeNegotiation 
+} from '../services/chatService';
 
 export default function ChatConversationScreen({ navigation, route }) {
   const { conversa: initialConversa, listing: routeListing } = route.params || {};
@@ -26,6 +31,9 @@ export default function ChatConversationScreen({ navigation, route }) {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  const [listingStatus, setListingStatus] = useState(
+    initialConversa?.listings?.status || routeListing?.status || 'Disponível'
+  );
 
   const flatListRef = useRef(null);
   const channelRef = useRef(null);
@@ -166,10 +174,90 @@ export default function ChatConversationScreen({ navigation, route }) {
     } catch (err) {
       Alert.alert('Erro', 'Não foi possível registrar a denúncia.');
     }
+  const handleReserve = () => {
+    const interestedName = conversa?.interessado?.full_name || 'este leitor';
+    Alert.alert(
+      'Reservar Exemplar',
+      `Deseja reservar este livro para ${interestedName}? Outros usuários não poderão iniciar novas conversas sobre ele.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Confirmar Reserva',
+          onPress: async () => {
+            try {
+              await reserveListingForUser(
+                listingData.id,
+                conversa.id,
+                conversa.interessado_id,
+                conversa.interessado?.full_name
+              );
+              setListingStatus('Reservado');
+              Alert.alert('Sucesso', 'Livro reservado com sucesso!');
+            } catch (err) {
+              Alert.alert('Erro ao reservar', err.message || 'Falha ao reservar o exemplar.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleCancelReservation = () => {
+    Alert.alert(
+      'Cancelar Reserva',
+      'Tem certeza de que deseja cancelar a reserva? O exemplar voltará a ficar disponível para todos.',
+      [
+        { text: 'Não', style: 'cancel' },
+        {
+          text: 'Sim, Cancelar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await cancelReservation(listingData.id, conversa.id);
+              setListingStatus('Disponível');
+              Alert.alert('Reserva Cancelada', 'O exemplar voltou ao status Disponível.');
+            } catch (err) {
+              Alert.alert('Erro ao cancelar', err.message || 'Falha ao cancelar reserva.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleConclude = () => {
+    const modalityName = modality.toUpperCase().includes('VENDA') 
+      ? 'Venda' 
+      : modality.toUpperCase().includes('DOA') 
+        ? 'Doação' 
+        : 'Troca';
+
+    Alert.alert(
+      `Concluir ${modalityName}`,
+      `Deseja marcar este exemplar como finalizado (${modalityName})? Esta ação é definitiva e moverá o livro para o histórico.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Concluir Negociação',
+          onPress: async () => {
+            try {
+              await concludeNegotiation(listingData.id, conversa.id, modality);
+              setListingStatus(
+                modalityName === 'Venda' ? 'Vendido' : modalityName === 'Doação' ? 'Doado' : 'Trocado'
+              );
+              Alert.alert('Parabéns!', `Negociação concluída com sucesso!`);
+            } catch (err) {
+              Alert.alert('Erro ao concluir', err.message || 'Falha ao finalizar negociação.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   // Metadados do anúncio para o Topo
   const listingData = conversa?.listings || routeListing;
+  const isSeller = currentUser?.id === (conversa?.anunciante_id || listingData?.user_id);
   const bookData = listingData?.books;
   const bookTitle = bookData?.title || listingData?.title || 'Livro';
   const coverUrl = bookData?.cover_image_url ? bookData.cover_image_url.split(',')[0] : null;
@@ -213,7 +301,7 @@ export default function ChatConversationScreen({ navigation, route }) {
         </TouchableOpacity>
       </View>
 
-      {/* Cartão de Resumo do Livro no Topo da Conversa */}
+      {/* Cartão de Resumo do Livro no Topo da Conversa com Ações de Negociação (US-05 / US-06 / US-07) */}
       <View style={styles.bookSummaryCard}>
         {coverUrl ? (
           <Image source={{ uri: coverUrl }} style={styles.bookCover} resizeMode="cover" />
@@ -224,8 +312,48 @@ export default function ChatConversationScreen({ navigation, route }) {
         )}
         <View style={styles.bookInfo}>
           <Text style={styles.bookTitle} numberOfLines={1}>{bookTitle}</Text>
-          <Text style={styles.bookModality}>{modality}</Text>
+          <View style={styles.statusRow}>
+            <Text style={styles.bookModality}>{modality}</Text>
+            <View style={[styles.statusBadge, listingStatus === 'Reservado' && styles.statusBadgeReserved]}>
+              <Text style={styles.statusBadgeText}>{listingStatus}</Text>
+            </View>
+          </View>
         </View>
+
+        {/* Ações do Anunciante */}
+        {isSeller && (
+          <View style={styles.negotiationActions}>
+            {listingStatus === 'Disponível' || listingStatus === 'ATIVO' ? (
+              <TouchableOpacity 
+                style={styles.actionBtnReserve} 
+                onPress={handleReserve}
+                accessibilityLabel="Reservar para este interessado"
+              >
+                <Feather name="bookmark" size={14} color="#FFF" style={{ marginRight: 4 }} />
+                <Text style={styles.actionBtnText}>Reservar</Text>
+              </TouchableOpacity>
+            ) : listingStatus === 'Reservado' ? (
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                <TouchableOpacity 
+                  style={styles.actionBtnConclude} 
+                  onPress={handleConclude}
+                  accessibilityLabel="Concluir negociação"
+                >
+                  <Feather name="check" size={14} color="#FFF" style={{ marginRight: 4 }} />
+                  <Text style={styles.actionBtnText}>Concluir</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={styles.actionBtnCancel} 
+                  onPress={handleCancelReservation}
+                  accessibilityLabel="Cancelar reserva"
+                >
+                  <Feather name="x" size={14} color="#757575" />
+                </TouchableOpacity>
+              </View>
+            ) : null}
+          </View>
+        )}
       </View>
 
       {/* Lista de Mensagens */}
@@ -382,8 +510,58 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 12,
     color: '#1E88E5',
-    marginTop: 2,
     textTransform: 'uppercase',
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+    gap: 6,
+  },
+  statusBadge: {
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  statusBadgeReserved: {
+    backgroundColor: '#FFF3E0',
+  },
+  statusBadgeText: {
+    fontSize: 10,
+    fontFamily: 'Inter_600SemiBold',
+    color: '#2E7D32',
+  },
+  negotiationActions: {
+    marginLeft: 8,
+  },
+  actionBtnReserve: {
+    backgroundColor: '#1E88E5',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  actionBtnConclude: {
+    backgroundColor: '#43A047',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  actionBtnCancel: {
+    backgroundColor: '#EEEEEE',
+    padding: 6,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontFamily: 'Inter_600SemiBold',
   },
   centerContainer: {
     flex: 1,

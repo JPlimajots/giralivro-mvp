@@ -155,3 +155,110 @@ export async function reportUser(reportedUserId, conversaId, motivo) {
 
   if (error) throw error;
 }
+
+/**
+ * Reservar exemplar para o interessado dentro do chat (US-05).
+ */
+export async function reserveListingForUser(listingId, conversaId, interestedUserId, interestedName) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Usuário não autenticado.');
+
+  // 1. Atualiza o status do anúncio para RESERVADO e vincula o usuário
+  const { error: updateErr } = await supabase
+    .from('listings')
+    .update({
+      status: 'Reservado',
+      reservado_para_id: interestedUserId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', listingId)
+    .eq('user_id', user.id);
+
+  if (updateErr) throw updateErr;
+
+  // 2. Registra auditoria
+  await supabase.from('auditoria_anuncios').insert({
+    listing_id: listingId,
+    status_anterior: 'Disponível',
+    novo_status: 'Reservado',
+    alterado_por: user.id,
+    detalhes: `Exemplar reservado para ${interestedName || interestedUserId}`,
+  });
+
+  // 3. Envia mensagem automática no chat (US-05)
+  await sendMessage(conversaId, `📌 O exemplar foi reservado para você! Combine os detalhes para finalizar.`);
+}
+
+/**
+ * Cancelar reserva de exemplar (US-07).
+ */
+export async function cancelReservation(listingId, conversaId) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Usuário não autenticado.');
+
+  const { error: updateErr } = await supabase
+    .from('listings')
+    .update({
+      status: 'Disponível',
+      reservado_para_id: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', listingId)
+    .eq('user_id', user.id);
+
+  if (updateErr) throw updateErr;
+
+  // Registra auditoria
+  await supabase.from('auditoria_anuncios').insert({
+    listing_id: listingId,
+    status_anterior: 'Reservado',
+    novo_status: 'Disponível',
+    alterado_por: user.id,
+    detalhes: 'Reserva cancelada pelo anunciante',
+  });
+
+  // Notifica no chat
+  await sendMessage(conversaId, `ℹ️ A reserva deste livro foi cancelada e ele voltou a ficar disponível.`);
+}
+
+/**
+ * Concluir negociação (Venda -> Vendido, Troca -> Trocado, Doação -> Doado) (US-06).
+ */
+export async function concludeNegotiation(listingId, conversaId, modality, bookReceived) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Usuário não autenticado.');
+
+  let finalStatus = 'Trocado';
+  const modUpper = (modality || '').toUpperCase();
+  if (modUpper.includes('VENDA')) {
+    finalStatus = 'Vendido';
+  } else if (modUpper.includes('DOA')) {
+    finalStatus = 'Doado';
+  } else {
+    finalStatus = 'Trocado';
+  }
+
+  const { error: updateErr } = await supabase
+    .from('listings')
+    .update({
+      status: finalStatus,
+      livro_recebido_troca: bookReceived || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', listingId)
+    .eq('user_id', user.id);
+
+  if (updateErr) throw updateErr;
+
+  // Registra auditoria
+  await supabase.from('auditoria_anuncios').insert({
+    listing_id: listingId,
+    status_anterior: 'Reservado',
+    novo_status: finalStatus,
+    alterado_por: user.id,
+    detalhes: `Negociação concluída como ${finalStatus}. ${bookReceived ? `Livro recebido: ${bookReceived}` : ''}`,
+  });
+
+  // Mensagem de conclusão no chat
+  await sendMessage(conversaId, `🎉 Negociação concluída com sucesso! Exemplar marcado como ${finalStatus}.`);
+}
