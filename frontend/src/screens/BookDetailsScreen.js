@@ -9,10 +9,12 @@ import {
   Alert,
   Share,
   Linking,
-  Dimensions
+  Dimensions,
+  ActivityIndicator
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { supabase } from '../services/supabase';
+import { getOrCreateConversation } from '../services/chatService';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -32,9 +34,14 @@ export default function BookDetailsScreen({ route, navigation }) {
   const [favorite, setFavorite] = useState(false);
   const [seller, setSeller] = useState(null);
   const [activeSlide, setActiveSlide] = useState(0);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [startingChat, setStartingChat] = useState(false);
 
   useEffect(() => {
     const fetchSellerInfo = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
+
       if (listing?.user_id) {
         try {
           const { data } = await supabase
@@ -106,7 +113,33 @@ export default function BookDetailsScreen({ route, navigation }) {
       ? 'Disponível para Troca'
       : modality === 'VENDA OU TROCA'
         ? `R$ ${Number(price || 0).toFixed(2)} ou Troca`
-        : `R$ ${Number(price || 0).toFixed(2)}`;
+  const handleStartChat = async () => {
+    if (!currentUser) {
+      Alert.alert('Login Necessário', 'Você precisa estar logado para conversar sobre este livro.', [
+        { text: 'Fazer Login', onPress: () => navigation.navigate('Login') },
+        { text: 'Cancelar', style: 'cancel' }
+      ]);
+      return;
+    }
+
+    if (currentUser.id === listing.user_id) {
+      Alert.alert('Atenção', 'Este anúncio é seu!');
+      return;
+    }
+
+    setStartingChat(true);
+    try {
+      const conversa = await getOrCreateConversation(listing.id, listing.user_id);
+      navigation.navigate('ChatConversation', { conversa, listing });
+    } catch (err) {
+      Alert.alert('Erro ao abrir chat', err.message || 'Não foi possível iniciar a conversa.');
+    } finally {
+      setStartingChat(false);
+    }
+  };
+
+  const isOwner = currentUser?.id === listing?.user_id;
+  const isAvailable = listing?.status === 'Disponível' || listing?.status === 'ATIVO' || !listing?.status;
 
   return (
     <View style={styles.container}>
@@ -213,13 +246,26 @@ export default function BookDetailsScreen({ route, navigation }) {
         </View>
       </ScrollView>
 
-      {/* Barra Inferior com Ação WhatsApp */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.whatsappBtn} onPress={handleOpenWhatsapp}>
-          <Icon name="whatsapp" size={24} color="#FFF" style={{ marginRight: 8 }} />
-          <Text style={styles.chatButtonText}>Conversar no WhatsApp</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Barra Inferior com Chat Interno (US-01) */}
+      {!isOwner && isAvailable && (
+        <View style={styles.bottomBar}>
+          <TouchableOpacity 
+            style={styles.chatPrimaryBtn} 
+            onPress={handleStartChat}
+            disabled={startingChat}
+            accessibilityLabel="Conversar no Chat"
+          >
+            {startingChat ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <>
+                <Icon name="chat-processing-outline" size={22} color="#FFF" style={{ marginRight: 8 }} />
+                <Text style={styles.chatButtonText}>Conversar no Chat</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
@@ -433,6 +479,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center'
+  },
+  chatPrimaryBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 2,
   },
   chatButtonText: {
     color: '#FFF',

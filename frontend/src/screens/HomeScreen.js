@@ -88,6 +88,13 @@ export default function HomeScreen({ navigation }) {
         </View>
 
         <View style={styles.headerIconsRow}>
+          <TouchableOpacity 
+            style={styles.iconBtn} 
+            onPress={() => navigation.navigate('ChatList')}
+            accessibilityLabel="Minhas mensagens de chat"
+          >
+            <Feather name="message-square" size={22} color="#1E88E5" />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Search')}>
             <Feather name="search" size={22} color="#333" />
           </TouchableOpacity>
