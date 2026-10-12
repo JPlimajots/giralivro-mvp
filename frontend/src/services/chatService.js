@@ -199,7 +199,7 @@ export async function cancelReservation(listingId, conversaId) {
   const { error: updateErr } = await supabase
     .from('listings')
     .update({
-      status: 'Disponível',
+      status: 'ATIVO',
       reservado_para_id: null,
       updated_at: new Date().toISOString(),
     })
@@ -211,8 +211,8 @@ export async function cancelReservation(listingId, conversaId) {
   // Registra auditoria
   await supabase.from('auditoria_anuncios').insert({
     listing_id: listingId,
-    status_anterior: 'Reservado',
-    novo_status: 'Disponível',
+    status_anterior: 'RESERVADO',
+    novo_status: 'ATIVO',
     alterado_por: user.id,
     detalhes: 'Reserva cancelada pelo anunciante',
   });

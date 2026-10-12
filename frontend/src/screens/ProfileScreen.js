@@ -108,16 +108,28 @@ export default function ProfileScreen({ navigation }) {
 
       const cleanCep = editCep.trim();
       const cleanWa = editWhatsapp.trim();
+      
+      // Atualiza metadados do auth (garante salvamento de objectives sem depender do schema de profiles)
+      await supabase.auth.updateUser({
+        data: {
+          full_name: editName.trim(),
+          cep: cleanCep,
+          objectives: editObjectives,
+        }
+      });
+
+      // Atualiza tabela profiles sem quebrar caso 'objectives' não exista como coluna
+      const profilePayload = {
+        id: user.id,
+        full_name: editName.trim(),
+        zip_code: cleanCep,
+        whatsapp: cleanWa,
+        email: user.email,
+      };
+
       const { error } = await supabase
         .from('profiles')
-        .upsert({
-          id: user.id,
-          full_name: editName.trim(),
-          zip_code: cleanCep,
-          whatsapp: cleanWa,
-          email: user.email,
-          objectives: editObjectives,
-        });
+        .upsert(profilePayload);
       if (error) throw error;
 
       if (cleanCep) {

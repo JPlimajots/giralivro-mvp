@@ -217,7 +217,7 @@ export default function AddListingDetailsScreen({ navigation, route }) {
           condition_ai_justification: aiJustification || null,
           price: isSale && price ? parseFloat(price) : null,
           observations: description,
-          status: 'Disponível',
+          status: 'ATIVO',
         });
 
       if (listingErr) throw listingErr;
