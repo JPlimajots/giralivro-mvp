@@ -11,7 +11,7 @@ import {
   LogBox
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
@@ -109,28 +109,22 @@ export default function AddBookPhotoScreen({ navigation }) {
       // Tenta avaliar condição por Visão Computacional no backend
       setUploadStepText('Analisando conservação com Inteligência Artificial...');
       try {
-        const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
-        const formData = new FormData();
+        const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.51:8000';
+        
+        // Lê as fotos como base64 diretamente com FileSystem (100% suportado no React Native)
+        const base64Fotos = [];
+        const slots = ['capa', 'lombada', 'contracapa'];
+        for (let i = 0; i < photos.length; i++) {
+          const b64 = await FileSystem.readAsStringAsync(photos[i].uri, { encoding: 'base64' });
+          base64Fotos.push({ slot: slots[i], base64: b64 });
+        }
 
-        formData.append('capa', {
-          uri: photos[0].uri,
-          type: 'image/jpeg',
-          name: 'capa.jpg'
-        });
-        formData.append('lombada', {
-          uri: photos[1].uri,
-          type: 'image/jpeg',
-          name: 'lombada.jpg'
-        });
-        formData.append('contracapa', {
-          uri: photos[2].uri,
-          type: 'image/jpeg',
-          name: 'contracapa.jpg'
-        });
-
-        const res = await fetch(`${apiUrl}/anuncios/avaliar-condicao`, {
+        const res = await fetch(`${apiUrl}/anuncios/avaliar-condicao-base64`, {
           method: 'POST',
-          body: formData,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ fotos: base64Fotos }),
         });
 
         if (res.ok) {
@@ -139,6 +133,8 @@ export default function AddBookPhotoScreen({ navigation }) {
             suggestedCondition = aiData.condicao;
             aiJustification = aiData.justificativa || '';
           }
+        } else {
+          console.log('Erro HTTP na IA:', res.status, await res.text());
         }
       } catch (aiErr) {
         console.log('Avaliação por IA ignorada ou offline:', aiErr);
@@ -221,7 +217,7 @@ export default function AddBookPhotoScreen({ navigation }) {
           <View style={styles.loadingCard}>
             <ActivityIndicator size="large" color="#1E88E5" style={{ marginBottom: 16 }} />
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-              <Feather name="sparkles" size={18} color="#1E88E5" />
+              <MaterialCommunityIcons name="creation" size={20} color="#1E88E5" />
               <Text style={styles.loadingTitle}>Avaliando Exemplar...</Text>
             </View>
             <Text style={styles.loadingSubtitle}>

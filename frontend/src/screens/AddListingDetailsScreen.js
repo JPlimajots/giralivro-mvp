@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from '../services/supabase';
 
 export default function AddListingDetailsScreen({ navigation, route }) {
@@ -331,7 +331,7 @@ export default function AddListingDetailsScreen({ navigation, route }) {
           <Text style={styles.sectionHeader}>Estado de Conservação</Text>
           {conditionOrigin === 'IA' && (
             <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#E3F2FD', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, gap: 4 }}>
-              <Feather name="sparkles" size={12} color="#1E88E5" />
+              <MaterialCommunityIcons name="creation" size={14} color="#1E88E5" />
               <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: '#1E88E5' }}>Sugerido por IA</Text>
             </View>
           )}

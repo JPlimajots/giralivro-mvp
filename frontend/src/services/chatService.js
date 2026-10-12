@@ -18,7 +18,7 @@ export async function getOrCreateConversation(listingId, sellerId) {
   // 1. Tenta buscar conversa existente
   const { data: existing, error: fetchErr } = await supabase
     .from('conversas')
-    .select('*, listings(id, title, transaction_type, status, book_id, books(title, author, cover_image_url)), anunciante:profiles!conversas_anunciante_id_fkey(id, full_name, avatar_url), interessado:profiles!conversas_interessado_id_fkey(id, full_name, avatar_url)')
+    .select('*, listings(id, transaction_type, status, book_id, books(title, author, cover_image_url)), anunciante:profiles!conversas_anunciante_id_fkey(id, full_name, avatar_url), interessado:profiles!conversas_interessado_id_fkey(id, full_name, avatar_url)')
     .eq('listing_id', listingId)
     .eq('interessado_id', user.id)
     .maybeSingle();
@@ -40,7 +40,7 @@ export async function getOrCreateConversation(listingId, sellerId) {
       interessado_id: user.id,
       status: 'ATIVA',
     })
-    .select('*, listings(id, title, transaction_type, status, book_id, books(title, author, cover_image_url)), anunciante:profiles!conversas_anunciante_id_fkey(id, full_name, avatar_url), interessado:profiles!conversas_interessado_id_fkey(id, full_name, avatar_url)')
+    .select('*, listings(id, transaction_type, status, book_id, books(title, author, cover_image_url)), anunciante:profiles!conversas_anunciante_id_fkey(id, full_name, avatar_url), interessado:profiles!conversas_interessado_id_fkey(id, full_name, avatar_url)')
     .single();
 
   if (insertErr) throw insertErr;
@@ -108,7 +108,7 @@ export async function fetchMyConversations() {
       status,
       created_at,
       updated_at,
-      listings(id, title, transaction_type, status, books(title, author, cover_image_url)),
+      listings(id, transaction_type, status, books(title, author, cover_image_url)),
       anunciante:profiles!conversas_anunciante_id_fkey(id, full_name, avatar_url),
       interessado:profiles!conversas_interessado_id_fkey(id, full_name, avatar_url),
       mensagens(id, conteudo, created_at, status_leitura, remetente_id)

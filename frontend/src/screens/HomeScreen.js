@@ -73,7 +73,7 @@ export default function HomeScreen({ navigation }) {
       const { data: listingsData, error } = await supabase
         .from('listings')
         .select('*, books(id, title, author, cover_image_url, genre)')
-        .or('status.eq.ATIVO,status.eq.Disponível,status.eq.DISPONIVEL')
+        .eq('status', 'ATIVO')
         .order('created_at', { ascending: false })
         .limit(20);
 
@@ -164,7 +164,7 @@ export default function HomeScreen({ navigation }) {
               <View style={{ marginBottom: 20 }}>
                 <View style={styles.sectionHeader}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Feather name="sparkles" size={18} color="#1E88E5" />
+                    <MaterialCommunityIcons name="creation" size={18} color="#1E88E5" />
                     <Text style={styles.sectionTitle}>Recomendados para você</Text>
                   </View>
                 </View>
