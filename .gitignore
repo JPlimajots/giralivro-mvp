@@ -25,4 +25,11 @@ __pycache__/
 # Configurações de build / credenciais expo locais
 frontend/eas.json
 .pytest_cache/
+.vercel/
+
+# Arquivos de teste e debug temporários
+*dump*.html
+*test*.py
+*debug*.py
+
 

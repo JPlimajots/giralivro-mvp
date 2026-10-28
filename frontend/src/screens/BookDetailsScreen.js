@@ -10,9 +10,11 @@ import {
   Share,
   Linking,
   Dimensions,
-  ActivityIndicator
+  ActivityIndicator,
+  Modal,
+  StatusBar
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { supabase } from '../services/supabase';
 import { getOrCreateConversation } from '../services/chatService';
@@ -39,6 +41,15 @@ export default function BookDetailsScreen({ route, navigation }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [startingChat, setStartingChat] = useState(false);
 
+  // Modal de Fotos em Tela Cheia
+  const [modalVisible, setModalVisible] = useState(false);
+  const [fullscreenIndex, setFullscreenIndex] = useState(0);
+
+  // Preço de referência da Amazon
+  const [amazonPrice, setAmazonPrice] = useState(listing?.books?.amazon_price || listing?.amazon_price || null);
+  const [amazonUrl, setAmazonUrl] = useState(listing?.books?.amazon_url || listing?.amazon_url || '');
+  const [loadingAmazonPrice, setLoadingAmazonPrice] = useState(false);
+
   useEffect(() => {
     const fetchSellerInfo = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -59,6 +70,36 @@ export default function BookDetailsScreen({ route, navigation }) {
       }
     };
     fetchSellerInfo();
+  }, [listing]);
+
+  // Consulta preço da Amazon via Vercel caso o livro tenha ISBN e ainda não tenha o preço carregado
+  useEffect(() => {
+    const bookIsbn = listing?.books?.isbn || listing?.isbn;
+    if (bookIsbn && !amazonPrice) {
+      const fetchPrice = async () => {
+        try {
+          setLoadingAmazonPrice(true);
+          const cleanIsbn = String(bookIsbn).replace(/\D/g, '');
+          const visionEnv = process.env.EXPO_PUBLIC_VISION_API_URL;
+          if (!visionEnv) return;
+          const vercelBase = visionEnv.replace(/\/api\/avaliar-condicao$/, '');
+          
+          const res = await fetch(`${vercelBase}/api/preco-amazon?isbn=${cleanIsbn}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.amazon_price) {
+              setAmazonPrice(data.amazon_price);
+              setAmazonUrl(data.amazon_url || `https://www.amazon.com.br/dp/${cleanIsbn}`);
+            }
+          }
+        } catch (e) {
+          console.log('[BookDetails] Erro ao buscar preço Amazon:', e?.message || e);
+        } finally {
+          setLoadingAmazonPrice(false);
+        }
+      };
+      fetchPrice();
+    }
   }, [listing]);
 
   if (!listing) {
@@ -163,7 +204,17 @@ export default function BookDetailsScreen({ route, navigation }) {
               }}
             >
               {images.map((img, index) => (
-                <Image key={index} source={{ uri: img }} style={[styles.coverImage, { width: screenWidth }]} resizeMode="cover" />
+                <TouchableOpacity
+                  key={index}
+                  activeOpacity={0.9}
+                  onPress={() => {
+                    setFullscreenIndex(index);
+                    setModalVisible(true);
+                  }}
+                  accessibilityLabel="Toque para ver a foto em tela cheia"
+                >
+                  <Image source={{ uri: img }} style={[styles.coverImage, { width: screenWidth }]} resizeMode="cover" />
+                </TouchableOpacity>
               ))}
             </ScrollView>
           ) : (
@@ -182,7 +233,7 @@ export default function BookDetailsScreen({ route, navigation }) {
           )}
 
           <TouchableOpacity 
-            style={styles.floatBackBtn} 
+            style={[styles.floatBackBtn, { top: Math.max(insets.top, 16) + 10 }]} 
             onPress={() => navigation.goBack()}
             accessibilityLabel="Voltar para a tela anterior"
             accessibilityRole="button"
@@ -190,7 +241,7 @@ export default function BookDetailsScreen({ route, navigation }) {
             <Icon name="arrow-left" size={24} color="#333" />
           </TouchableOpacity>
 
-          <View style={styles.rightFloatContainer}>
+          <View style={[styles.rightFloatContainer, { top: Math.max(insets.top, 16) + 10 }]}>
             <TouchableOpacity 
               style={styles.floatIconBtn} 
               onPress={() => setFavorite(!favorite)}
@@ -228,7 +279,84 @@ export default function BookDetailsScreen({ route, navigation }) {
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.author}>{`por ${author}`}</Text>
 
-          <Text style={price ? styles.price : styles.freePrice}>{formattedPrice}</Text>
+          {/* Bloco de Preço com Ancoragem de Desconto no estilo E-Commerce */}
+          {amazonPrice && price && Number(price) > 0 ? (
+            <View style={styles.offerCard}>
+              <View style={styles.offerHeaderRow}>
+                <View style={styles.offerLeftCol}>
+                  <View style={styles.originalPriceRow}>
+                    <Text style={styles.strikethroughPrice}>
+                      Novo R$ {Number(amazonPrice).toFixed(2).replace('.', ',')}
+                    </Text>
+                    {Number(amazonPrice) > Number(price) && (
+                      <View style={styles.discountPercentBadge}>
+                        <Icon name="arrow-down-bold" size={12} color="#2E7D32" />
+                        <Text style={styles.discountPercentText}>
+                          {Math.round(((Number(amazonPrice) - Number(price)) / Number(amazonPrice)) * 100)}% OFF
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <Text style={styles.mainPriceHighlight}>
+                    R$ {Number(price).toFixed(2).replace('.', ',')}
+                  </Text>
+                </View>
+
+                {Number(amazonPrice) > Number(price) && (
+                  <View style={styles.savingsTagBox}>
+                    <Text style={styles.savingsTagTitle}>VOCÊ ECONOMIZA</Text>
+                    <Text style={styles.savingsTagAmount}>
+                      R$ {(Number(amazonPrice) - Number(price)).toFixed(2).replace('.', ',')}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              <TouchableOpacity 
+                style={styles.amazonLinkBar}
+                onPress={() => amazonUrl && Linking.openURL(amazonUrl)}
+                activeOpacity={0.7}
+                accessibilityLabel="Ver preço de referência na Amazon"
+                accessibilityRole="button"
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Icon name="tag-outline" size={14} color="#616161" />
+                  <Text style={styles.amazonLinkText}>Preço oficial do exemplar novo na Amazon</Text>
+                </View>
+                <Icon name="arrow-top-right" size={14} color="#757575" />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={{ marginTop: 4 }}>
+              <Text style={price ? styles.price : styles.freePrice}>{formattedPrice}</Text>
+              
+              {amazonPrice && (
+                <View style={[styles.amazonLinkBar, { marginTop: 10 }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Icon name="tag-outline" size={14} color="#616161" />
+                    <Text style={styles.amazonLinkText}>
+                      Novo na Amazon: R$ {Number(amazonPrice).toFixed(2).replace('.', ',')}
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={() => amazonUrl && Linking.openURL(amazonUrl)}>
+                    <Text style={{ fontSize: 11, color: '#1E88E5', textDecorationLine: 'underline', fontFamily: 'Inter_600SemiBold' }}>
+                      Conferir
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
+
+          {loadingAmazonPrice && !amazonPrice && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, paddingVertical: 4 }}>
+              <ActivityIndicator size="small" color="#212121" />
+              <Text style={{ fontSize: 12, color: '#424242', fontFamily: 'Inter_500Medium' }}>
+                Consultando preço de referência...
+              </Text>
+            </View>
+          )}
 
           <View style={styles.divider} />
 
@@ -287,6 +415,66 @@ export default function BookDetailsScreen({ route, navigation }) {
           </TouchableOpacity>
         </View>
       )}
+      {/* Modal Visualizador de Fotos em Tela Cheia */}
+      <Modal
+        visible={modalVisible}
+        transparent={false}
+        animationType="fade"
+        statusBarTranslucent={true}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <SafeAreaView style={styles.modalBackdrop} edges={['top', 'bottom', 'left', 'right']}>
+          <StatusBar barStyle="light-content" backgroundColor="#000000" translucent={true} />
+          
+          {/* Header do Modal com Botão Fechar e Contador */}
+          <View style={styles.modalHeader}>
+            <TouchableOpacity 
+              style={styles.modalActionBtn}
+              onPress={() => setModalVisible(false)}
+              accessibilityLabel="Fechar visualização"
+            >
+              <Icon name="close" size={24} color="#FFF" />
+            </TouchableOpacity>
+
+            <Text style={styles.modalPageIndicator}>
+              {`${fullscreenIndex + 1} de ${images.length}`}
+            </Text>
+
+            {/* Espaçador para centralizar o título perfeitamente */}
+            <View style={{ width: 44 }} />
+          </View>
+
+          {/* Carrossel em Tela Cheia */}
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            contentOffset={{ x: fullscreenIndex * screenWidth, y: 0 }}
+            onMomentumScrollEnd={(e) => {
+              const idx = Math.round(e.nativeEvent.contentOffset.x / screenWidth);
+              setFullscreenIndex(idx);
+            }}
+            style={{ flex: 1 }}
+          >
+            {images.map((img, index) => (
+              <View key={`full-${index}`} style={styles.fullscreenSlide}>
+                <Image
+                  source={{ uri: img }}
+                  style={styles.fullscreenImage}
+                  resizeMode="contain"
+                />
+              </View>
+            ))}
+          </ScrollView>
+
+          {/* Dica de Rodapé */}
+          <View style={styles.modalFooter}>
+            <Text style={styles.modalFooterText}>
+              Deslize para o lado para ver as fotos detalhadas do exemplar
+            </Text>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 }
@@ -322,42 +510,48 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     width: '100%',
-    height: 340,
-    backgroundColor: '#000',
-    position: 'relative'
+    height: 380,
+    backgroundColor: '#1A1A1A',
+    position: 'relative',
+    overflow: 'hidden',
   },
   coverImage: {
     width: '100%',
     height: '100%',
-    opacity: 0.95
   },
   floatBackBtn: {
     position: 'absolute',
-    top: 48,
     left: 16,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(255,255,255,0.92)',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 4
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
   },
   rightFloatContainer: {
     position: 'absolute',
-    top: 48,
     right: 16,
-    flexDirection: 'row'
+    flexDirection: 'row',
   },
   floatIconBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(255,255,255,0.92)',
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
-    elevation: 4
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
   },
   detailsSection: {
     backgroundColor: COLORS.surface,
@@ -385,79 +579,85 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8F5E9'
   },
   modalityBadgeText: {
-    fontSize: 12,
-    fontWeight: 'bold',
+    fontSize: 11,
+    fontFamily: 'Inter_700Bold',
+    letterSpacing: 0.5,
     color: COLORS.primary
   },
   conditionBadge: {
-    backgroundColor: '#F5F5F6',
+    backgroundColor: '#F8F9FA',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: COLORS.border
+    borderColor: '#E0E0E0'
   },
   conditionBadgeText: {
     fontSize: 12,
-    color: COLORS.subtitle
+    fontFamily: 'Inter_500Medium',
+    color: '#616161'
   },
   title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    lineHeight: 28
+    fontSize: 24,
+    fontFamily: 'Nunito_800ExtraBold',
+    color: '#212121',
+    lineHeight: 30,
+    letterSpacing: -0.3,
   },
   author: {
     fontSize: 15,
-    color: COLORS.subtitle,
+    fontFamily: 'Inter_400Regular',
+    color: '#757575',
     marginTop: 4,
-    marginBottom: 12
+    marginBottom: 8
   },
   price: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: COLORS.secondary
+    fontSize: 26,
+    fontFamily: 'Inter_700Bold',
+    color: '#1B5E20'
   },
   freePrice: {
     fontSize: 22,
-    fontWeight: 'bold',
-    color: COLORS.secondary
+    fontFamily: 'Inter_700Bold',
+    color: '#2E7D32'
   },
   divider: {
     height: 1,
-    backgroundColor: COLORS.border,
+    backgroundColor: '#F0F0F0',
     marginVertical: 16
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10
+    marginBottom: 12
   },
   infoText: {
     fontSize: 14,
-    color: COLORS.text,
+    fontFamily: 'Inter_400Regular',
+    color: '#424242',
     marginLeft: 10
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: COLORS.text,
+    fontSize: 17,
+    fontFamily: 'Nunito_700Bold',
+    color: '#212121',
     marginBottom: 8
   },
   description: {
     fontSize: 14,
-    color: COLORS.subtitle,
+    fontFamily: 'Inter_400Regular',
+    color: '#616161',
     lineHeight: 22
   },
   sellerCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9F9FB',
-    borderRadius: 12,
-    padding: 14,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 14,
+    padding: 16,
     marginTop: 20,
     borderWidth: 1,
-    borderColor: COLORS.border
+    borderColor: '#EEEEEE'
   },
   sellerAvatar: {
     width: 48,
@@ -466,19 +666,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#E3F2FD',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12
+    marginRight: 14
   },
   sellerInfo: {
     flex: 1
   },
   sellerName: {
     fontSize: 15,
-    fontWeight: 'bold',
-    color: COLORS.text
+    fontFamily: 'Inter_600SemiBold',
+    color: '#212121'
   },
   sellerSubtitle: {
     fontSize: 12,
-    color: COLORS.subtitle,
+    fontFamily: 'Inter_400Regular',
+    color: '#757575',
     marginTop: 2
   },
   bottomBar: {
@@ -534,5 +735,142 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     width: 10,
     height: 10,
+  },
+  offerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginVertical: 12,
+    borderWidth: 1.5,
+    borderColor: '#E8F5E9',
+    shadowColor: '#2E7D32',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  offerHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  offerLeftCol: {
+    flex: 1,
+  },
+  originalPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  strikethroughPrice: {
+    fontSize: 13,
+    color: '#828282',
+    textDecorationLine: 'line-through',
+    fontFamily: 'Inter_500Medium',
+  },
+  discountPercentBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    gap: 2,
+  },
+  discountPercentText: {
+    fontSize: 11,
+    fontFamily: 'Inter_700Bold',
+    color: '#2E7D32',
+  },
+  mainPriceHighlight: {
+    fontSize: 30,
+    fontFamily: 'Inter_700Bold',
+    color: '#1B5E20',
+    letterSpacing: -0.5,
+  },
+  savingsTagBox: {
+    backgroundColor: '#E8F5E9',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#C8E6C9',
+  },
+  savingsTagTitle: {
+    fontSize: 9,
+    fontFamily: 'Inter_700Bold',
+    color: '#2E7D32',
+    letterSpacing: 0.5,
+  },
+  savingsTagAmount: {
+    fontSize: 14,
+    fontFamily: 'Inter_700Bold',
+    color: '#1B5E20',
+    marginTop: 1,
+  },
+  amazonLinkBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+  },
+  amazonLinkText: {
+    fontSize: 11,
+    fontFamily: 'Inter_500Medium',
+    color: '#616161',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    zIndex: 10,
+  },
+  modalActionBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalPageIndicator: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  fullscreenSlide: {
+    width: screenWidth,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullscreenImage: {
+    width: '100%',
+    height: '100%',
+  },
+  modalFooter: {
+    paddingHorizontal: 24,
+    alignItems: 'center',
+  },
+  modalFooterText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 12,
+    fontFamily: 'Inter_400Regular',
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });

@@ -80,7 +80,7 @@ export default function HomeScreen({ navigation }) {
       // Buscar anúncios ativos com dados dos livros
       const { data: listingsData, error } = await supabase
         .from('listings')
-        .select('*, books(id, title, author, cover_image_url, genre)')
+        .select('*, books(id, title, author, cover_image_url, genre, isbn)')
         .eq('status', 'ATIVO')
         .order('created_at', { ascending: false })
         .limit(20);
@@ -246,14 +246,47 @@ export default function HomeScreen({ navigation }) {
                       <Feather name="book" size={32} color="#1E88E5" />
                     </View>
                   )}
-                  <View style={styles.cardBadges}>
-                    <Text style={styles.cardModality}>{listing.transaction_type}</Text>
+                  <View style={[
+                    styles.cardBadges, 
+                    listing.transaction_type === 'DOACAO' || listing.transaction_type === 'DOAÇÃO' 
+                      ? styles.badgeGreen 
+                      : listing.transaction_type === 'VENDA' 
+                        ? styles.badgeOrange 
+                        : styles.badgeBlue
+                  ]}>
+                    <Text style={[
+                      styles.cardModality,
+                      listing.transaction_type === 'DOACAO' || listing.transaction_type === 'DOAÇÃO' 
+                        ? styles.badgeGreenText 
+                        : listing.transaction_type === 'VENDA' 
+                          ? styles.badgeOrangeText 
+                          : styles.badgeBlueText
+                    ]}>
+                      {listing.transaction_type === 'DOACAO' ? 'DOAÇÃO' : listing.transaction_type || 'DISPONÍVEL'}
+                    </Text>
                   </View>
                   <Text style={styles.cardTitle} numberOfLines={1}>{listing.books?.title || 'Sem título'}</Text>
                   <Text style={styles.cardAuthor} numberOfLines={1}>{listing.books?.author || ''}</Text>
-                  {listing.price ? (
-                    <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#43A047', marginTop: 2 }}>R$ {Number(listing.price).toFixed(2)}</Text>
-                  ) : null}
+                  
+                  {/* Preços e Comparativo com Amazon no Card */}
+                  <View style={{ marginTop: 4 }}>
+                    {listing.books?.amazon_price && listing.price && Number(listing.books.amazon_price) > Number(listing.price) ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 11, color: '#9E9E9E', textDecorationLine: 'line-through' }}>
+                          R$ {Number(listing.books.amazon_price).toFixed(0)}
+                        </Text>
+                        <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 10, color: '#2E7D32' }}>
+                          {Math.round(((Number(listing.books.amazon_price) - Number(listing.price)) / Number(listing.books.amazon_price)) * 100)}% OFF
+                        </Text>
+                      </View>
+                    ) : null}
+
+                    {listing.price ? (
+                      <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 14, color: '#1B5E20' }}>
+                        R$ {Number(listing.price).toFixed(2).replace('.', ',')}
+                      </Text>
+                    ) : null}
+                  </View>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -307,14 +340,16 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E0E0E0',
   },
   greetingEyebrow: {
-    fontFamily: 'Nunito_700Bold',
+    fontFamily: 'Nunito_800ExtraBold',
     fontSize: 20,
-    color: '#1E88E5',
+    color: '#212121',
+    letterSpacing: -0.3,
   },
   locationSub: {
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'Inter_500Medium',
     fontSize: 12,
-    color: '#666',
+    color: '#757575',
+    marginTop: 2,
   },
   headerIconsRow: {
     flexDirection: 'row',
@@ -350,18 +385,18 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   carouselCard: {
-    width: 155,
+    width: 160,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 10,
-    marginRight: 12,
+    marginRight: 14,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E8E8E8',
   },
   cardCover: {
     width: '100%',
-    height: 160,
-    borderRadius: 8,
+    height: 175,
+    borderRadius: 10,
     marginBottom: 8,
   },
   dislikeBadgeBtn: {
@@ -382,9 +417,9 @@ const styles = StyleSheet.create({
   },
   recommendationBadge: {
     backgroundColor: '#E3F2FD',
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 4,
+    borderRadius: 6,
     marginBottom: 6,
     alignSelf: 'flex-start',
   },
@@ -395,27 +430,45 @@ const styles = StyleSheet.create({
   },
   cardBadges: {
     alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginBottom: 6,
+  },
+  badgeBlue: {
     backgroundColor: '#E3F2FD',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginBottom: 4,
+  },
+  badgeBlueText: {
+    color: '#1565C0',
+  },
+  badgeGreen: {
+    backgroundColor: '#E8F5E9',
+  },
+  badgeGreenText: {
+    color: '#2E7D32',
+  },
+  badgeOrange: {
+    backgroundColor: '#FFF3E0',
+  },
+  badgeOrangeText: {
+    color: '#E65100',
   },
   cardModality: {
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'Inter_700Bold',
     fontSize: 10,
-    color: '#1E88E5',
+    letterSpacing: 0.3,
   },
   cardTitle: {
     fontFamily: 'Nunito_700Bold',
     fontSize: 14,
-    color: '#333',
+    color: '#212121',
+    lineHeight: 18,
   },
   cardAuthor: {
     fontFamily: 'Inter_400Regular',
     fontSize: 12,
-    color: '#666',
-    marginBottom: 8,
+    color: '#757575',
+    marginBottom: 4,
   },
   cardBtn: {
     backgroundColor: '#F5F5F6',

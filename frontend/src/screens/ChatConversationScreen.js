@@ -21,8 +21,12 @@ import {
   cancelReservation, 
   concludeNegotiation 
 } from '../services/chatService';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Feather } from '@expo/vector-icons';
+import { supabase } from '../services/supabase';
 
 export default function ChatConversationScreen({ navigation, route }) {
+  const insets = useSafeAreaInsets();
   const { conversa: initialConversa, listing: routeListing } = route.params || {};
 
   const [conversa, setConversa] = useState(initialConversa || null);
@@ -146,7 +150,8 @@ export default function ChatConversationScreen({ navigation, route }) {
             }
           },
         },
-      ]
+      ],
+      { cancelable: true }
     );
   };
 
@@ -163,7 +168,8 @@ export default function ChatConversationScreen({ navigation, route }) {
         { text: 'Tentativa de golpe ou fraude', onPress: () => sendReport(otherUserId, 'Tentativa de fraude') },
         { text: 'Livro não correspondente', onPress: () => sendReport(otherUserId, 'Livro divergente') },
         { text: 'Cancelar', style: 'cancel' }
-      ]
+      ],
+      { cancelable: true }
     );
   };
 
@@ -200,7 +206,8 @@ export default function ChatConversationScreen({ navigation, route }) {
             }
           },
         },
-      ]
+      ],
+      { cancelable: true }
     );
   };
 
@@ -223,7 +230,8 @@ export default function ChatConversationScreen({ navigation, route }) {
             }
           },
         },
-      ]
+      ],
+      { cancelable: true }
     );
   };
 
@@ -253,7 +261,8 @@ export default function ChatConversationScreen({ navigation, route }) {
             }
           },
         },
-      ]
+      ],
+      { cancelable: true }
     );
   };
 
@@ -266,7 +275,7 @@ export default function ChatConversationScreen({ navigation, route }) {
   const modality = listingData?.transaction_type || 'DISPONÍVEL';
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Topo / Header com Ações */}
       <View style={styles.header}>
         <TouchableOpacity 
@@ -358,11 +367,11 @@ export default function ChatConversationScreen({ navigation, route }) {
         )}
       </View>
 
-      {/* Lista de Mensagens */}
+      {/* Lista de Mensagens e Barra com KeyboardAvoidingView Correto */}
       <KeyboardAvoidingView 
         style={{ flex: 1 }} 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 20}
       >
         {loading ? (
           <View style={styles.centerContainer}>
@@ -414,8 +423,8 @@ export default function ChatConversationScreen({ navigation, route }) {
           />
         )}
 
-        {/* Barra de Entrada de Texto */}
-        <View style={styles.inputBar}>
+        {/* Barra de Entrada de Texto com Respiro da Barra de Navegação */}
+        <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
           <TextInput
             style={styles.textInput}
             placeholder="Digite uma mensagem (máx 1.000)..."

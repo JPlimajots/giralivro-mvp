@@ -35,6 +35,11 @@ export default function AddListingDetailsScreen({ navigation, route }) {
   const [isDonation, setIsDonation] = useState(false);
   const [price, setPrice] = useState('');
 
+  // Preço de referência original da Amazon obtido via Vercel
+  const [amazonPrice, setAmazonPrice] = useState(null);
+  const [amazonUrl, setAmazonUrl] = useState('');
+  const [loadingAmazonPrice, setLoadingAmazonPrice] = useState(false);
+
   // Estado de conservação: travado enquanto a IA avalia em background
   const [analyzingAi, setAnalyzingAi] = useState(fotosUrls && fotosUrls.length > 0 && !initialSuggestedCondition);
   const [condition, setCondition] = useState(initialSuggestedCondition || null);
@@ -64,8 +69,12 @@ export default function AddListingDetailsScreen({ navigation, route }) {
 
         console.log('Iniciando avaliação por IA em background...', fotosUrlsPayload);
 
-        const vercelVisionUrl = process.env.EXPO_PUBLIC_VISION_API_URL || 'https://giralivro-visao.vercel.app/api/avaliar-condicao';
-        const apiKey = process.env.EXPO_PUBLIC_VISION_API_KEY || 'yNq7xF4A2vtvu8STs83ZtX';
+        const vercelVisionUrl = process.env.EXPO_PUBLIC_VISION_API_URL;
+        const apiKey = process.env.EXPO_PUBLIC_VISION_API_KEY || process.env.EXPO_PUBLIC_API_KEY;
+        if (!vercelVisionUrl) {
+          console.warn('EXPO_PUBLIC_VISION_API_URL não configurada.');
+          return;
+        }
 
         console.log('[Vercel Vision] POST ->', vercelVisionUrl);
         const response = await fetch(vercelVisionUrl, {
@@ -205,6 +214,9 @@ export default function AddListingDetailsScreen({ navigation, route }) {
           setGenre('Outros');
         }
 
+        // Busca o preço novo de referência da Amazon via Vercel Serverless
+        fetchAmazonPrice(cleanIsbn);
+
         Alert.alert('Obra Encontrada!', `Preenchemos automaticamente: "${fetchedTitle}" por ${fetchedAuthor}`);
       } else {
         Alert.alert('ISBN não encontrado', 'Não encontramos este ISBN na base pública. Preencha o título e autor manualmente.');
@@ -213,6 +225,38 @@ export default function AddListingDetailsScreen({ navigation, route }) {
       Alert.alert('Erro de Conexão', 'Não foi possível buscar os metadados do ISBN. Preencha manualmente.');
     } finally {
       setSearchingIsbn(false);
+    }
+  };
+
+  const fetchAmazonPrice = async (cleanIsbn) => {
+    try {
+      const visionEnv = process.env.EXPO_PUBLIC_VISION_API_URL;
+      if (!visionEnv) return;
+
+      setLoadingAmazonPrice(true);
+      const vercelBase = visionEnv.replace(/\/api\/avaliar-condicao$/, '');
+
+      const amazonEndpoint = `${vercelBase}/api/preco-amazon?isbn=${cleanIsbn}`;
+      console.log('[Vercel Amazon Price] GET ->', amazonEndpoint);
+
+      const res = await fetch(amazonEndpoint);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.amazon_price) {
+          setAmazonPrice(data.amazon_price);
+          setAmazonUrl(data.amazon_url || `https://www.amazon.com.br/dp/${cleanIsbn}`);
+          
+          // Se o usuário ainda não digitou preço e a venda estiver ativa, sugere ~50%
+          if (!price) {
+            const suggested = (data.amazon_price * 0.5).toFixed(2);
+            setPrice(suggested);
+          }
+        }
+      }
+    } catch (e) {
+      console.log('[Vercel Amazon Price] Falha ao consultar preço de referência:', e?.message || e);
+    } finally {
+      setLoadingAmazonPrice(false);
     }
   };
 
@@ -273,13 +317,32 @@ export default function AddListingDetailsScreen({ navigation, route }) {
             title: title.trim(),
             author: author.trim(),
             cover_image_url: coverUrl,
-            genre: genre // Salva em PT-BR no Supabase
+            genre: genre, // Salva em PT-BR no Supabase
+            amazon_price: amazonPrice || null,
+            amazon_url: amazonUrl || null
           })
           .select()
           .single();
 
-        if (bookErr) throw bookErr;
-        bookId = newBook.id;
+        if (bookErr) {
+          // Se as colunas opcionais amazon_price/amazon_url ainda não existirem no Supabase, tenta insert padrão
+          const { data: fallbackBook, error: fallbackErr } = await supabase
+            .from('books')
+            .insert({
+              isbn: isbn.trim() || null,
+              title: title.trim(),
+              author: author.trim(),
+              cover_image_url: coverUrl,
+              genre: genre
+            })
+            .select()
+            .single();
+
+          if (fallbackErr) throw fallbackErr;
+          bookId = fallbackBook.id;
+        } else {
+          bookId = newBook.id;
+        }
       }
 
       const { error: listingErr } = await supabase
@@ -386,10 +449,35 @@ export default function AddListingDetailsScreen({ navigation, route }) {
 
         {isSale && (
           <View style={{ marginBottom: 12 }}>
-            <Text style={styles.label}>Preço de Venda (R$)</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={styles.label}>Preço de Venda (R$)</Text>
+              {loadingAmazonPrice && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <ActivityIndicator size="small" color="#E65100" />
+                  <Text style={{ fontSize: 11, color: '#E65100', fontFamily: 'Inter_400Regular' }}>Consultando Amazon...</Text>
+                </View>
+              )}
+            </View>
+
+            {amazonPrice && (
+              <View style={{ backgroundColor: '#FFF3E0', padding: 10, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: '#FFE0B2' }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#E65100' }}>
+                    🏷️ Novo na Amazon: R$ {amazonPrice.toFixed(2).replace('.', ',')}
+                  </Text>
+                  <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: '#795548' }}>
+                    Sugerido: ~50%
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 11, color: '#757575', marginTop: 3 }}>
+                  Preço de referência do exemplar físico novo.
+                </Text>
+              </View>
+            )}
+
             <TextInput
               style={styles.input}
-              placeholder="Ex: 45.00"
+              placeholder="Ex: 25.00"
               placeholderTextColor="#9E9E9E"
               keyboardType="numeric"
               value={price}

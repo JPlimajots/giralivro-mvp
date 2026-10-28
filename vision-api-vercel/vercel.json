@@ -8,6 +8,10 @@
     {
       "src": "/api/avaliar-condicao",
       "dest": "/api/avaliar-condicao"
+    },
+    {
+      "src": "/api/preco-amazon",
+      "dest": "/api/preco-amazon"
     }
   ]
 }
